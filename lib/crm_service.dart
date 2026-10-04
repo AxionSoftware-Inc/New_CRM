@@ -30,20 +30,23 @@ class CrmService {
             params: {
               'name': const ParamDef(type: 'string', description: 'Mijoz ismi yoki tashkilot'),
               'phone': const ParamDef(type: 'string', description: 'Telefon raqami', required: false, defaultValue: ''),
-              'company': const ParamDef(type: 'string', description: 'Kompaniya nomi', required: false, defaultValue: ''),
+              'company': const ParamDef(type: 'string', description: 'Kompaniya nomi yoki mahsulot', required: false, defaultValue: ''),
+              'product': const ParamDef(type: 'string', description: 'Mahsulot yoki xizmat', required: false, defaultValue: ''),
               'note': const ParamDef(type: 'string', description: 'Dastlabki izoh', required: false, defaultValue: ''),
               'assigned_to': const ParamDef(type: 'string', description: 'Mas\'ul xodim (masalan: Sardor)', required: false, defaultValue: 'Sardor'),
               'deal_amount': const ParamDef(type: 'number', description: 'Taxminiy bitim summasi', required: false, defaultValue: 0),
+              'budget': const ParamDef(type: 'number', description: 'Byudjet (deal_amount muqobili)', required: false, defaultValue: 0),
             },
             handler: (p) async {
               final name = '${p['name']}'.trim();
               if (name.isEmpty) return ToolResult.err(error: "Mijoz ismi kiritilmadi.");
 
               final phone = '${p['phone'] ?? ''}'.trim();
-              final company = '${p['company'] ?? ''}'.trim();
+              final product = '${p['product'] ?? p['company'] ?? ''}'.trim();
+              final company = '${p['company'] ?? product}'.trim();
               final note = '${p['note'] ?? ''}'.trim();
               final assignedTo = '${p['assigned_to'] ?? 'Sardor'}'.trim();
-              final dealAmount = UzbekNlp.parseNumber(p['deal_amount']);
+              final dealAmount = UzbekNlp.parseNumber(p['deal_amount'] ?? p['budget'] ?? 0);
 
               final entity = store.insert(
                 name: name,
@@ -51,8 +54,10 @@ class CrmService {
                 meta: {
                   'phone': phone,
                   'company': company,
+                  'product': product.isNotEmpty ? product : company,
                   'assigned_to': assignedTo,
                   'deal_amount': dealAmount,
+                  'budget': dealAmount,
                   'notes': note.isNotEmpty ? ['${DateTime.now().toIso8601String().substring(0, 16)}: $note'] : [],
                   'last_note': note.isNotEmpty ? note : 'Yangi lid yaratildi',
                   'created_at': DateTime.now().toIso8601String(),
@@ -66,25 +71,74 @@ class CrmService {
             },
           ),
 
+          // 1.1 Aliased Tool: crm_lead_add
+          ToolDef(
+            name: 'crm_lead_add',
+            description: "Yangi mijoz yoki lid qo'shish (crm_add muqobili)",
+            params: {
+              'name': const ParamDef(type: 'string', description: 'Mijoz ismi yoki tashkilot'),
+              'phone': const ParamDef(type: 'string', description: 'Telefon raqami', required: false, defaultValue: ''),
+              'company': const ParamDef(type: 'string', description: 'Kompaniya nomi yoki mahsulot', required: false, defaultValue: ''),
+              'product': const ParamDef(type: 'string', description: 'Mahsulot yoki xizmat', required: false, defaultValue: ''),
+              'note': const ParamDef(type: 'string', description: 'Dastlabki izoh', required: false, defaultValue: ''),
+              'assigned_to': const ParamDef(type: 'string', description: 'Mas\'ul xodim', required: false, defaultValue: 'Sardor'),
+              'budget': const ParamDef(type: 'number', description: 'Byudjet', required: false, defaultValue: 0),
+              'deal_amount': const ParamDef(type: 'number', description: 'Bitim summasi', required: false, defaultValue: 0),
+            },
+            handler: (p) async {
+              final name = '${p['name']}'.trim();
+              if (name.isEmpty) return ToolResult.err(error: "Mijoz ismi kiritilmadi.");
+
+              final phone = '${p['phone'] ?? ''}'.trim();
+              final product = '${p['product'] ?? p['company'] ?? ''}'.trim();
+              final company = '${p['company'] ?? product}'.trim();
+              final note = '${p['note'] ?? ''}'.trim();
+              final assignedTo = '${p['assigned_to'] ?? 'Sardor'}'.trim();
+              final dealAmount = UzbekNlp.parseNumber(p['deal_amount'] ?? p['budget'] ?? 0);
+
+              final entity = store.insert(
+                name: name,
+                status: 'lead',
+                meta: {
+                  'phone': phone,
+                  'company': company,
+                  'product': product.isNotEmpty ? product : company,
+                  'assigned_to': assignedTo,
+                  'deal_amount': dealAmount,
+                  'budget': dealAmount,
+                  'notes': note.isNotEmpty ? ['${DateTime.now().toIso8601String().substring(0, 16)}: $note'] : [],
+                  'last_note': note.isNotEmpty ? note : 'Yangi lid yaratildi',
+                  'created_at': DateTime.now().toIso8601String(),
+                },
+              );
+              return ToolResult.ok(
+                action: 'crm_lead_add',
+                data: entity.toJson(),
+                message: "'$name' yangi mijoz sifatida qo'shildi ($phone). Mas'ul: $assignedTo.",
+              );
+            },
+          ),
+
           // 2. Mijoz bosqichini o'zgartirish (lead -> talk -> deal -> won / lost)
           ToolDef(
             name: 'crm_stage',
             description: "Mijoz holatini o'zgartirish: lead (yangi), talk (muzokara), deal (shartnoma), won (yutildi/sotildi), lost (rad etdi)",
             params: {
-              'name': const ParamDef(type: 'string', description: 'Mijoz ismi'),
+              'name': const ParamDef(type: 'string', description: 'Mijoz ismi yoki ID'),
               'stage': const ParamDef(type: 'string', description: 'lead | talk | deal | won | lost'),
               'deal_amount': const ParamDef(type: 'number', description: 'Bitim summasi', required: false),
               'reason': const ParamDef(type: 'string', description: 'Rad etilish yoki yutish sababi/izohi', required: false),
             },
             handler: (p) async {
-              final targetKey = p['name'];
-              var stage = '${p['stage']}'.toLowerCase().trim();
+              final targetKey = p['id'] ?? p['name'];
+              var stage = '${p['stage'] ?? p['status'] ?? ''}'.toLowerCase().trim();
 
               // O'zbekcha so'zlashuvdagi sinonimlarni to'g'irlash
-              if (stage.contains('gaplash') || stage.contains('muzokara')) stage = 'talk';
+              if (stage.contains('gaplash') || stage.contains('muzokara') || stage == 'contacted') stage = 'talk';
               if (stage.contains('shartnoma') || stage.contains('taklif') || stage.contains('bitim')) stage = 'deal';
-              if (stage.contains('yut') || stage.contains('kelish') || stage.contains('oldi') || stage.contains('sotildi') || stage.contains('yop')) stage = 'won';
-              if (stage.contains('rad') || stage.contains('yoq') || stage.contains('ketdi') || stage.contains('bekor')) stage = 'lost';
+              if (stage.contains('yut') || stage.contains('kelish') || stage.contains('oldi') || stage.contains('sotildi') || stage.contains('yop') || stage == 'won') stage = 'won';
+              if (stage.contains('rad') || stage.contains('yoq') || stage.contains('ketdi') || stage.contains('bekor') || stage == 'lost') stage = 'lost';
+              if (stage == 'new' || stage == 'lead') stage = 'lead';
 
               final existing = store.find(targetKey);
               final dealAmount = p['deal_amount'] != null ? UzbekNlp.parseNumber(p['deal_amount']) : null;
@@ -96,7 +150,10 @@ class CrmService {
                   'last_note': 'Bosqich: $stage',
                   'created_at': DateTime.now().toIso8601String(),
                 };
-                if (dealAmount != null && dealAmount > 0) meta['deal_amount'] = dealAmount;
+                if (dealAmount != null && dealAmount > 0) {
+                  meta['deal_amount'] = dealAmount;
+                  meta['budget'] = dealAmount;
+                }
                 if (reason != null && reason.isNotEmpty) meta['reason'] = reason;
 
                 final entity = store.insert(
@@ -114,7 +171,10 @@ class CrmService {
               final metaPatch = <String, dynamic>{
                 'updated_at': DateTime.now().toIso8601String(),
               };
-              if (dealAmount != null && dealAmount > 0) metaPatch['deal_amount'] = dealAmount;
+              if (dealAmount != null && dealAmount > 0) {
+                metaPatch['deal_amount'] = dealAmount;
+                metaPatch['budget'] = dealAmount;
+              }
               if (reason != null && reason.isNotEmpty) metaPatch['reason'] = reason;
               if (stage == 'won') metaPatch['won_at'] = DateTime.now().toIso8601String();
               if (stage == 'lost') metaPatch['lost_at'] = DateTime.now().toIso8601String();
@@ -133,23 +193,65 @@ class CrmService {
             },
           ),
 
+          // 2.1 Aliased Tool: crm_lead_stage
+          ToolDef(
+            name: 'crm_lead_stage',
+            description: "Mijoz holatini o'zgartirish (crm_stage muqobili)",
+            params: {
+              'name': const ParamDef(type: 'string', description: 'Mijoz ismi yoki ID', required: false),
+              'id': const ParamDef(type: 'number', description: 'Mijoz ID raqami', required: false),
+              'stage': const ParamDef(type: 'string', description: 'lead | talk | deal | won | lost | contacted'),
+            },
+            handler: (p) async {
+              final targetKey = p['id'] ?? p['name'];
+              var stage = '${p['stage'] ?? p['status'] ?? ''}'.toLowerCase().trim();
+
+              if (stage.contains('gaplash') || stage.contains('muzokara') || stage == 'contacted') stage = 'talk';
+              if (stage.contains('shartnoma') || stage.contains('taklif') || stage.contains('bitim')) stage = 'deal';
+              if (stage.contains('yut') || stage.contains('kelish') || stage.contains('oldi') || stage.contains('sotildi') || stage.contains('yop') || stage == 'won') stage = 'won';
+              if (stage.contains('rad') || stage.contains('yoq') || stage.contains('ketdi') || stage.contains('bekor') || stage == 'lost') stage = 'lost';
+              if (stage == 'new' || stage == 'lead') stage = 'lead';
+
+              final existing = store.find(targetKey);
+              if (existing == null) return ToolResult.err(error: "'$targetKey' CRM bazasidan topilmadi.");
+
+              final metaPatch = <String, dynamic>{
+                'updated_at': DateTime.now().toIso8601String(),
+              };
+              if (stage == 'won') metaPatch['won_at'] = DateTime.now().toIso8601String();
+              if (stage == 'lost') metaPatch['lost_at'] = DateTime.now().toIso8601String();
+
+              final updated = store.update(
+                existing.id,
+                status: stage,
+                metaPatch: metaPatch,
+              );
+
+              return ToolResult.ok(
+                action: 'crm_lead_stage',
+                data: updated.toJson(),
+                message: "'${updated.name}' bosqichi '$stage' ga o'zgartirildi.",
+              );
+            },
+          ),
+
           // 3. Bitim summasini belgilash
           ToolDef(
             name: 'crm_deal',
             description: "Mijoz bilan kutilayotgan yoki yakunlangan bitim summasini belgilash",
             params: {
-              'name': const ParamDef(type: 'string', description: 'Mijoz ismi'),
+              'name': const ParamDef(type: 'string', description: 'Mijoz ismi yoki ID'),
               'amount': const ParamDef(type: 'number', description: 'Bitim summasi'),
             },
             handler: (p) async {
-              final targetKey = p['name'];
+              final targetKey = p['id'] ?? p['name'];
               final existing = store.find(targetKey);
               if (existing == null) return ToolResult.err(error: "'$targetKey' CRM bazasidan topilmadi.");
 
               final amount = UzbekNlp.parseNumber(p['amount']);
               final updated = store.update(
                 existing.id,
-                metaPatch: {'deal_amount': amount},
+                metaPatch: {'deal_amount': amount, 'budget': amount},
               );
 
               return ToolResult.ok(
@@ -165,11 +267,11 @@ class CrmService {
             name: 'crm_note',
             description: "Mijoz bilan oxirgi suhbat yoki yangilik bo'yicha izoh yozish",
             params: {
-              'name': const ParamDef(type: 'string', description: 'Mijoz ismi'),
+              'name': const ParamDef(type: 'string', description: 'Mijoz ismi yoki ID'),
               'note': const ParamDef(type: 'string', description: 'Izoh matni'),
             },
             handler: (p) async {
-              final targetKey = p['name'];
+              final targetKey = p['id'] ?? p['name'];
               final note = '${p['note']}'.trim();
               if (note.isEmpty) return ToolResult.err(error: "Izoh matni bo'sh.");
 
@@ -407,7 +509,7 @@ class CrmService {
               'name': const ParamDef(type: 'string', description: 'O\'chiriladigan yozuv nomi yoki ID'),
             },
             handler: (p) async {
-              final targetKey = p['name'];
+              final targetKey = p['id'] ?? p['name'];
               final existing = store.find(targetKey);
               if (existing == null) return ToolResult.err(error: "'$targetKey' CRM bazasidan topilmadi, o'chirib bo'lmadi.");
 

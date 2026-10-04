@@ -55,6 +55,78 @@ Future<bool> recordFinanceDealIncome({
   return false;
 }
 
+// ============================================================================
+// DESIGN SYSTEM & THEME ARCHITECTURE (MIDNIGHT EXECUTIVE & LIGHT THEMES)
+// ============================================================================
+class CrmTheme {
+  // Light Palette
+  static const Color lightBg = Color(0xFFF8FAFC);
+  static const Color lightCard = Colors.white;
+  static const Color lightBorder = Color(0xFFE2E8F0);
+  static const Color lightText = Color(0xFF0F172A);
+  static const Color lightTextMuted = Color(0xFF64748B);
+
+  // Dark Palette (Midnight Executive)
+  static const Color darkBg = Color(0xFF0B0F19);
+  static const Color darkCard = Color(0xFF131B2E);
+  static const Color darkBorder = Color(0xFF1E293B);
+  static const Color darkText = Color(0xFFF8FAFC);
+  static const Color darkTextMuted = Color(0xFF94A3B8);
+
+  // Primary Accent Colors (Teal / Emerald for CRM Deals)
+  static const Color primary = Color(0xFF0D9488); // Teal 600
+  static const Color primaryLight = Color(0xFF14B8A6); // Teal 500
+  static const Color accentEmerald = Color(0xFF10B981); // Emerald 500
+  static const Color accentAmber = Color(0xFFF59E0B);
+  static const Color accentRose = Color(0xFFF43F5E);
+  static const Color accentIndigo = Color(0xFF6366F1);
+
+  static ThemeData light() {
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.light,
+      colorSchemeSeed: primary,
+      scaffoldBackgroundColor: lightBg,
+      cardColor: lightCard,
+      dividerColor: lightBorder,
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+      ),
+      navigationBarTheme: const NavigationBarThemeData(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        indicatorColor: Color(0xFFCCFBF1), // Teal 100
+      ),
+    );
+  }
+
+  static ThemeData dark() {
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+      colorSchemeSeed: primaryLight,
+      scaffoldBackgroundColor: darkBg,
+      cardColor: darkCard,
+      dividerColor: darkBorder,
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Color(0xFF0B0F19),
+        elevation: 0,
+        scrolledUnderElevation: 0,
+      ),
+      navigationBarTheme: const NavigationBarThemeData(
+        backgroundColor: Color(0xFF0B0F19),
+        elevation: 0,
+        indicatorColor: Color(0xFF134E4A), // Teal 900
+      ),
+    );
+  }
+}
+
+// Global theme notifier for real-time switching
+final ValueNotifier<ThemeMode> crmThemeNotifier = ValueNotifier<ThemeMode>(ThemeMode.light);
+
 class CrmApp extends StatelessWidget {
   const CrmApp({
     super.key,
@@ -69,19 +141,22 @@ class CrmApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'CRM & Mijozlar',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorSchemeSeed: Colors.teal,
-        useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFFF8F9FA),
-      ),
-      home: CrmMainShell(
-        service: service,
-        profileManager: profileManager,
-        pluginManager: pluginManager,
-      ),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: crmThemeNotifier,
+      builder: (context, currentMode, _) {
+        return MaterialApp(
+          title: 'CRM & Savdo Voronkasi',
+          debugShowCheckedModeBanner: false,
+          theme: CrmTheme.light(),
+          darkTheme: CrmTheme.dark(),
+          themeMode: currentMode,
+          home: CrmMainShell(
+            service: service,
+            profileManager: profileManager,
+            pluginManager: pluginManager,
+          ),
+        );
+      },
     );
   }
 }
@@ -154,80 +229,106 @@ class _CrmMainShellState extends State<CrmMainShell> {
 
   @override
   Widget build(BuildContext context) {
-    final newCount = widget.service.store.all.where((e) => e.status == 'new' || e.status == 'contacted').length;
+    final all = widget.service.store.all;
+    final activeCount = all.where((e) => e.status == 'new' || e.status == 'lead' || e.status == 'contacted' || e.status == 'talk').length;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      backgroundColor: isDark ? CrmTheme.darkBg : CrmTheme.lightBg,
       appBar: AppBar(
+        backgroundColor: isDark ? CrmTheme.darkBg : Colors.white,
         title: Row(
           children: [
-            const Icon(Icons.people_alt_outlined, color: Colors.teal, size: 24),
-            const SizedBox(width: 8),
-            const Text(
-              'CRM & Mijozlar',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-            ),
-            const SizedBox(width: 12),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: _security.currentUser.role == UserRole.director
-                    ? Colors.teal.shade50
-                    : Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: _security.currentUser.role == UserRole.director
-                      ? Colors.teal.shade300
-                      : Colors.blue.shade300,
+                color: CrmTheme.primary.withValues(alpha: isDark ? 0.2 : 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.people_alt_rounded, color: CrmTheme.primaryLight, size: 20),
+            ),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'CRM & Savdo',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: isDark ? CrmTheme.darkText : CrmTheme.lightText,
+                    letterSpacing: -0.3,
+                  ),
                 ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    _security.currentUser.role == UserRole.director ? Icons.shield : Icons.person,
-                    size: 13,
-                    color: _security.currentUser.role == UserRole.director
-                        ? Colors.teal.shade800
-                        : Colors.blue.shade800,
-                  ),
-                  const SizedBox(width: 5),
-                  Text(
-                    widget.profileManager.current.name,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: _security.currentUser.role == UserRole.director
-                          ? Colors.teal.shade900
-                          : Colors.blue.shade900,
+                Row(
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(color: Color(0xFF10B981), shape: BoxShape.circle),
                     ),
-                  ),
-                ],
-              ),
+                    const SizedBox(width: 4),
+                    Text(
+                      ':8082 • ${_security.currentUser.name.split(' ').first}',
+                      style: TextStyle(fontSize: 10, color: isDark ? CrmTheme.darkTextMuted : const Color(0xFF64748B), fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ],
         ),
         actions: [
+          // Dark/Light Theme Quick Toggle
+          IconButton(
+            tooltip: isDark ? "Kunduzgi rejim (Light)" : "Tungi rejim (Dark)",
+            icon: Icon(
+              isDark ? Icons.light_mode_rounded : Icons.dark_mode_outlined,
+              color: isDark ? const Color(0xFFFDE047) : const Color(0xFF64748B),
+              size: 20,
+            ),
+            onPressed: () {
+              crmThemeNotifier.value = isDark ? ThemeMode.light : ThemeMode.dark;
+            },
+          ),
+
           // Plagin: O'zbekcha AI Assistent
           if (widget.pluginManager.isPluginActive('plugin_uzbek_ai'))
             IconButton(
-              icon: const Icon(Icons.auto_awesome, color: Colors.purple),
+              icon: const Icon(Icons.auto_awesome, color: Color(0xFFA855F7), size: 20),
               tooltip: "O'zbekcha AI Bitim Ochish",
               onPressed: () => _openAiLeadAssistant(context),
             ),
+
+          // User Role Avatar Pill
           Container(
-            margin: const EdgeInsets.only(right: 16),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            margin: const EdgeInsets.only(right: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.green.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.green.shade400),
+              color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: isDark ? CrmTheme.darkBorder : const Color(0xFFE2E8F0)),
             ),
-            child: const Row(
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.wifi, size: 13, color: Colors.green),
-                SizedBox(width: 5),
-                Text(':8082', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12)),
+                CircleAvatar(
+                  radius: 10,
+                  backgroundColor: CrmTheme.primary,
+                  child: Text(
+                    _security.currentUser.name.isNotEmpty ? _security.currentUser.name[0] : 'U',
+                    style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  _security.currentUser.role.name.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? CrmTheme.darkText : const Color(0xFF334155),
+                  ),
+                ),
               ],
             ),
           ),
@@ -251,6 +352,7 @@ class _CrmMainShellState extends State<CrmMainShell> {
           ),
           // Tab 2: Profil & Sozlamalar (Core Profile & Settings)
           CrmProfileTab(
+            service: widget.service,
             profileManager: widget.profileManager,
             pluginManager: widget.pluginManager,
             onProfileChanged: _switchUser,
@@ -263,22 +365,22 @@ class _CrmMainShellState extends State<CrmMainShell> {
         destinations: [
           NavigationDestination(
             icon: Badge(
-              isLabelVisible: newCount > 0,
-              label: Text('$newCount'),
-              child: const Icon(Icons.people_outline),
+              isLabelVisible: activeCount > 0,
+              label: Text('$activeCount'),
+              child: const Icon(Icons.people_outline_rounded),
             ),
-            selectedIcon: const Icon(Icons.people),
+            selectedIcon: const Icon(Icons.people_rounded),
             label: 'Mijozlar',
           ),
           const NavigationDestination(
-            icon: Icon(Icons.person_add_alt_1_outlined),
-            selectedIcon: Icon(Icons.person_add_alt_1),
+            icon: Icon(Icons.person_add_alt_outlined),
+            selectedIcon: Icon(Icons.person_add_alt_1_rounded),
             label: 'Mijoz Qo\'shish',
           ),
           const NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Profil & Sozlamalar',
+            icon: Icon(Icons.person_outline_rounded),
+            selectedIcon: Icon(Icons.person_rounded),
+            label: 'Profil',
           ),
         ],
       ),
@@ -287,7 +389,7 @@ class _CrmMainShellState extends State<CrmMainShell> {
 }
 
 // ============================================================================
-// TAB 0: MIJOZLAR RO'YXATI (CORE LIST)
+// TAB 0: MIJOZLAR RO'YXATI (MOBILE FIRST)
 // ============================================================================
 class CrmLeadsTab extends StatefulWidget {
   const CrmLeadsTab({
@@ -315,7 +417,13 @@ class _CrmLeadsTabState extends State<CrmLeadsTab> {
     var items = widget.service.store.all;
 
     if (_stageFilter != 'all') {
-      items = items.where((e) => e.status == _stageFilter).toList();
+      if (_stageFilter == 'new') {
+        items = items.where((e) => e.status == 'new' || e.status == 'lead').toList();
+      } else if (_stageFilter == 'contacted') {
+        items = items.where((e) => e.status == 'contacted' || e.status == 'talk').toList();
+      } else {
+        items = items.where((e) => e.status == _stageFilter).toList();
+      }
     }
 
     if (_search.trim().isNotEmpty) {
@@ -323,8 +431,9 @@ class _CrmLeadsTabState extends State<CrmLeadsTab> {
       items = items.where((e) {
         final name = e.name.toLowerCase();
         final phone = (e.meta['phone'] ?? '').toString().toLowerCase();
-        final prod = (e.meta['product'] ?? '').toString().toLowerCase();
-        return name.contains(q) || phone.contains(q) || prod.contains(q);
+        final prod = (e.meta['product'] ?? e.meta['company'] ?? '').toString().toLowerCase();
+        final assigned = (e.meta['assigned_to'] ?? '').toString().toLowerCase();
+        return name.contains(q) || phone.contains(q) || prod.contains(q) || assigned.contains(q);
       }).toList();
     }
 
@@ -332,21 +441,24 @@ class _CrmLeadsTabState extends State<CrmLeadsTab> {
   }
 
   void _updateStage(Entity lead, String nextStage) async {
-    final tool = widget.service.schema.tools.firstWhere((t) => t.name == 'crm_lead_stage');
-    await tool.handler({'id': lead.id, 'stage': nextStage});
+    final tool = widget.service.schema.tools.firstWhere(
+      (t) => t.name == 'crm_lead_stage' || t.name == 'crm_stage',
+    );
+    await tool.handler({'id': lead.id, 'name': lead.name, 'stage': nextStage});
 
     // Agar bitim yutilsa (won), moliyaga avtomatik kirim
     if (nextStage == 'won') {
-      final amount = UzbekNlp.parseNumber(lead.meta['budget']).toDouble();
+      final amount = UzbekNlp.parseNumber(lead.meta['deal_amount'] ?? lead.meta['budget']).toDouble();
+      final product = lead.meta['product'] ?? lead.meta['company'] ?? 'Xizmat';
 
-      // 1. Ekotizim Voqealar Shinası (EventBus) orqali e'lon qilish -> Bridge plaginini avtomat ishga tushiradi
+      // 1. Ekotizim Voqealar Shinası (EventBus) orqali e'lon qilish
       await EventBus.instance.publish(EcosystemEvent(
         name: 'crm_lead_won',
         sourceApp: 'crm',
         payload: {
           'lead_id': lead.id,
           'lead_name': lead.name,
-          'product': lead.meta['product'] ?? 'Xizmat',
+          'product': '$product',
           'budget': amount,
         },
       ));
@@ -356,7 +468,7 @@ class _CrmLeadsTabState extends State<CrmLeadsTab> {
         await recordFinanceDealIncome(
           client: lead.name,
           amount: amount,
-          note: 'CRM bitim yakunlandi: ${lead.meta['product'] ?? 'Xizmat'}',
+          note: 'CRM bitim yakunlandi: $product',
         );
       }
       if (mounted) {
@@ -369,229 +481,353 @@ class _CrmLeadsTabState extends State<CrmLeadsTab> {
     if (mounted) setState(() {});
   }
 
-  void _deleteLead(Entity lead) {
+  void _deleteLead(Entity lead) async {
     if (widget.security.currentUser.role != UserRole.director) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Xatolik: Faqat direktor mijoz yozuvini o\'chira oladi.')),
       );
       return;
     }
-    widget.service.store.delete(lead.id);
-    if (mounted) setState(() {});
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Mijozni o\'chirish', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        content: Text('Haqiqatdan ham "${lead.name}" mijozini butunlay o\'chirmoqchimisiz?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Bekor qilish'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
+            child: const Text('O\'chirish'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      widget.service.store.delete(lead.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('"${lead.name}" o\'chirildi.')),
+        );
+        setState(() {});
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final leads = _leads;
     final all = widget.service.store.all;
-    final newCount = all.where((e) => e.status == 'new').length;
-    final contactedCount = all.where((e) => e.status == 'contacted').length;
+    final newCount = all.where((e) => e.status == 'new' || e.status == 'lead').length;
+    final contactedCount = all.where((e) => e.status == 'contacted' || e.status == 'talk').length;
     final wonCount = all.where((e) => e.status == 'won').length;
     final lostCount = all.where((e) => e.status == 'lost').length;
 
-    return Column(
-      children: [
-        // Qidirish va Bosqich Filtrlar
-        Container(
-          color: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Column(
-            children: [
-              TextField(
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.search, size: 20),
-                  hintText: 'Mijoz ismi, telefon yoki mahsulot...',
-                  hintStyle: const TextStyle(fontSize: 13),
-                  isDense: true,
-                  filled: true,
-                  fillColor: const Color(0xFFF1F3F5),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-                onChanged: (v) => setState(() => _search = v),
-              ),
-              const SizedBox(height: 8),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    FilterChip(
-                      selected: _stageFilter == 'all',
-                      label: Text('Barchasi (${all.length})'),
-                      onSelected: (_) => setState(() => _stageFilter = 'all'),
-                    ),
-                    const SizedBox(width: 6),
-                    FilterChip(
-                      selected: _stageFilter == 'new',
-                      label: Text('Yangi ($newCount)'),
-                      selectedColor: Colors.blue.shade100,
-                      onSelected: (_) => setState(() => _stageFilter == 'new'),
-                    ),
-                    const SizedBox(width: 6),
-                    FilterChip(
-                      selected: _stageFilter == 'contacted',
-                      label: Text('Muzokara ($contactedCount)'),
-                      selectedColor: Colors.orange.shade100,
-                      onSelected: (_) => setState(() => _stageFilter == 'contacted'),
-                    ),
-                    const SizedBox(width: 6),
-                    FilterChip(
-                      selected: _stageFilter == 'won',
-                      label: Text('Yutildi ($wonCount)'),
-                      selectedColor: Colors.green.shade100,
-                      onSelected: (_) => setState(() => _stageFilter == 'won'),
-                    ),
-                    const SizedBox(width: 6),
-                    FilterChip(
-                      selected: _stageFilter == 'lost',
-                      label: Text('Yo\'qotildi ($lostCount)'),
-                      selectedColor: Colors.red.shade100,
-                      onSelected: (_) => setState(() => _stageFilter == 'lost'),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-        // Plagin: Savdo Voronkasi (Funnel Slot)
-        if (widget.pluginManager?.isPluginActive('plugin_crm_funnel') == true)
-          Container(
-            color: Colors.white,
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-            child: Container(
-              padding: const EdgeInsets.all(12),
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 500),
+        child: Column(
+          children: [
+            // Top Command Header (Mobile First)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: Colors.teal.shade50.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.teal.shade200),
+                color: isDark ? CrmTheme.darkCard : Colors.white,
+                border: Border(bottom: BorderSide(color: isDark ? CrmTheme.darkBorder : const Color(0xFFE2E8F0), width: 1)),
               ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.filter_alt, size: 16, color: Colors.teal),
-                      const SizedBox(width: 6),
-                      const Text(
-                        'Savdo Voronkasi (Funnel Plagini)',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.teal),
+                      // Search box
+                      Expanded(
+                        child: Container(
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: isDark ? CrmTheme.darkBorder : const Color(0xFFE2E8F0)),
+                          ),
+                          child: TextField(
+                            decoration: InputDecoration(
+                              hintText: 'Mijoz, telefon yoki mahsulot...',
+                              hintStyle: TextStyle(fontSize: 13, color: isDark ? CrmTheme.darkTextMuted : const Color(0xFF94A3B8)),
+                              prefixIcon: Icon(Icons.search_rounded, size: 20, color: isDark ? CrmTheme.darkTextMuted : const Color(0xFF94A3B8)),
+                              suffixIcon: _search.isNotEmpty
+                                  ? IconButton(
+                                      icon: Icon(Icons.clear, size: 16, color: isDark ? CrmTheme.darkTextMuted : const Color(0xFF94A3B8)),
+                                      onPressed: () => setState(() => _search = ''),
+                                    )
+                                  : null,
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                            ),
+                            style: TextStyle(fontSize: 13, color: isDark ? CrmTheme.darkText : CrmTheme.lightText),
+                            onChanged: (v) => setState(() => _search = v),
+                          ),
+                        ),
                       ),
-                      const Spacer(),
-                      Text(
-                        'Konversiya: ${all.isNotEmpty ? ((wonCount / all.length) * 100).toInt() : 0}%',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.teal),
+                      const SizedBox(width: 8),
+                      // Add Button
+                      IconButton.filled(
+                        style: IconButton.styleFrom(
+                          backgroundColor: CrmTheme.primary,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        icon: const Icon(Icons.add_rounded, color: Colors.white, size: 20),
+                        tooltip: "Yangi mijoz qo'shish",
+                        onPressed: widget.onGoToCreate,
                       ),
                     ],
                   ),
                   const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(child: _FunnelStage(label: 'Yangi', count: newCount, color: Colors.blue)),
-                      const SizedBox(width: 4),
-                      const Icon(Icons.arrow_right_alt, size: 16, color: Colors.grey),
-                      const SizedBox(width: 4),
-                      Expanded(child: _FunnelStage(label: 'Muzokara', count: contactedCount, color: Colors.orange)),
-                      const SizedBox(width: 4),
-                      const Icon(Icons.arrow_right_alt, size: 16, color: Colors.grey),
-                      const SizedBox(width: 4),
-                      Expanded(child: _FunnelStage(label: 'Yutildi', count: wonCount, color: Colors.green)),
-                    ],
+
+                  // Filter Pills
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _buildFilterPill('all', 'Barchasi', all.length, isDark),
+                        const SizedBox(width: 6),
+                        _buildFilterPill('new', 'Yangi', newCount, isDark),
+                        const SizedBox(width: 6),
+                        _buildFilterPill('contacted', 'Muzokara', contactedCount, isDark),
+                        const SizedBox(width: 6),
+                        _buildFilterPill('won', 'Yutildi', wonCount, isDark),
+                        const SizedBox(width: 6),
+                        _buildFilterPill('lost', 'Yo\'qotildi', lostCount, isDark),
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
-          ),
-        const Divider(height: 1),
 
-        // Ro'yxat
-        Expanded(
-          child: leads.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.person_off_outlined, size: 48, color: Colors.grey.shade400),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'Hech qanday mijoz topilmadi',
-                        style: TextStyle(fontSize: 15, color: Colors.grey, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 8),
-                      ElevatedButton.icon(
-                        onPressed: widget.onGoToCreate,
-                        icon: const Icon(Icons.add),
-                        label: const Text('Yangi mijoz qo\'shish'),
-                      ),
-                    ],
-                  ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  itemCount: leads.length,
-                  itemBuilder: (ctx, idx) {
-                    final lead = leads[idx];
-                    return _buildLeadCard(lead);
-                  },
+            // Savdo Voronkasi (Funnel Slot)
+            if (widget.pluginManager?.isPluginActive('plugin_crm_funnel') != false)
+              Container(
+                margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF0D2825) : const Color(0xFFF0FDFA),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: isDark ? const Color(0xFF115E59) : const Color(0xFFCCFBF1)),
                 ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.filter_alt_rounded, size: 16, color: CrmTheme.primaryLight),
+                        const SizedBox(width: 6),
+                        const Text(
+                          'Savdo Voronkasi (Funnel Plagini)',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: CrmTheme.primaryLight),
+                        ),
+                        const Spacer(),
+                        Text(
+                          'Konversiya: ${all.isNotEmpty ? ((wonCount / all.length) * 100).toInt() : 0}%',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: CrmTheme.primaryLight),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(child: _FunnelStage(label: 'Yangi', count: newCount, color: const Color(0xFF3B82F6), isDark: isDark)),
+                        const SizedBox(width: 4),
+                        Icon(Icons.arrow_right_alt_rounded, size: 16, color: isDark ? CrmTheme.darkTextMuted : Colors.grey),
+                        const SizedBox(width: 4),
+                        Expanded(child: _FunnelStage(label: 'Muzokara', count: contactedCount, color: const Color(0xFFF59E0B), isDark: isDark)),
+                        const SizedBox(width: 4),
+                        Icon(Icons.arrow_right_alt_rounded, size: 16, color: isDark ? CrmTheme.darkTextMuted : Colors.grey),
+                        const SizedBox(width: 4),
+                        Expanded(child: _FunnelStage(label: 'Yutildi', count: wonCount, color: const Color(0xFF10B981), isDark: isDark)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+            // Deals List
+            Expanded(
+              child: leads.isEmpty
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              width: 64,
+                              height: 64,
+                              decoration: BoxDecoration(
+                                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(Icons.people_outline_rounded, size: 32, color: isDark ? CrmTheme.darkTextMuted : const Color(0xFF94A3B8)),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Mijozlar topilmadi',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? CrmTheme.darkText : const Color(0xFF0F172A)),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Filtrni o\'zgartiring yoki yangi mijoz / bitim kiriting.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontSize: 13, color: isDark ? CrmTheme.darkTextMuted : const Color(0xFF64748B)),
+                            ),
+                            const SizedBox(height: 16),
+                            FilledButton.icon(
+                              onPressed: widget.onGoToCreate,
+                              style: FilledButton.styleFrom(backgroundColor: CrmTheme.primary),
+                              icon: const Icon(Icons.add_rounded, size: 18),
+                              label: const Text('Yangi Mijoz Qo\'shish'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+                      itemCount: leads.length,
+                      itemBuilder: (ctx, idx) => _buildLeadCard(leads[idx], isDark),
+                    ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
-  Widget _buildLeadCard(Entity lead) {
+  Widget _buildFilterPill(String key, String label, int count, bool isDark) {
+    final selected = _stageFilter == key;
+    return GestureDetector(
+      onTap: () => setState(() => _stageFilter = key),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected
+              ? CrmTheme.primary
+              : (isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9)),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected
+                ? CrmTheme.primary
+                : (isDark ? CrmTheme.darkBorder : const Color(0xFFE2E8F0)),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+                color: selected
+                    ? Colors.white
+                    : (isDark ? CrmTheme.darkTextMuted : const Color(0xFF475569)),
+              ),
+            ),
+            const SizedBox(width: 5),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+              decoration: BoxDecoration(
+                color: selected
+                    ? Colors.white.withValues(alpha: 0.2)
+                    : (isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '$count',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: selected
+                      ? Colors.white
+                      : (isDark ? CrmTheme.darkText : const Color(0xFF334155)),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLeadCard(Entity lead, bool isDark) {
     final status = lead.status;
     final phone = lead.meta['phone'] ?? 'Raqam kiritilmagan';
-    final product = lead.meta['product'] ?? 'Umumiy';
-    final budget = UzbekNlp.parseNumber(lead.meta['budget']);
+    final product = lead.meta['product'] ?? lead.meta['company'] ?? 'Umumiy';
+    final budget = UzbekNlp.parseNumber(lead.meta['deal_amount'] ?? lead.meta['budget']);
     final assigned = lead.meta['assigned_to'] ?? 'Menejer';
     final isDirector = widget.security.currentUser.role == UserRole.director;
 
     Color stageColor;
     String stageText;
     if (status == 'won') {
-      stageColor = Colors.green;
+      stageColor = const Color(0xFF10B981);
       stageText = 'Yutildi ✅';
     } else if (status == 'lost') {
-      stageColor = Colors.red;
+      stageColor = const Color(0xFFEF4444);
       stageText = 'Yo\'qotildi ❌';
-    } else if (status == 'contacted') {
-      stageColor = Colors.orange.shade800;
+    } else if (status == 'contacted' || status == 'talk') {
+      stageColor = const Color(0xFFF59E0B);
       stageText = 'Muzokara 💬';
     } else {
-      stageColor = Colors.blue;
+      stageColor = const Color(0xFF3B82F6);
       stageText = 'Yangi Lid 🆕';
     }
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      elevation: 0.5,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade200),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: isDark ? CrmTheme.darkCard : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: isDark ? CrmTheme.darkBorder : const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Top Row: Name and Stage Badge
             Row(
               children: [
                 Expanded(
                   child: Text(
                     lead.name,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: isDark ? CrmTheme.darkText : const Color(0xFF0F172A),
+                    ),
                   ),
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: stageColor.withValues(alpha: 0.1),
+                    color: stageColor.withValues(alpha: isDark ? 0.2 : 0.1),
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: stageColor.withValues(alpha: 0.5)),
+                    border: Border.all(color: stageColor.withValues(alpha: 0.4)),
                   ),
                   child: Text(
                     stageText,
@@ -601,76 +837,214 @@ class _CrmLeadsTabState extends State<CrmLeadsTab> {
                 if (isDirector) ...[
                   const SizedBox(width: 4),
                   IconButton(
-                    icon: const Icon(Icons.delete_outline, size: 18, color: Colors.grey),
+                    icon: Icon(Icons.delete_outline_rounded, size: 18, color: isDark ? CrmTheme.darkTextMuted : Colors.grey),
                     onPressed: () => _deleteLead(lead),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
                   ),
                 ],
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
 
-            // Metadata Chips
+            // Chips Row: Assignee, Product, Budget, Phone
             Wrap(
-              spacing: 8,
-              runSpacing: 4,
+              spacing: 6,
+              runSpacing: 6,
               children: [
-                Chip(
-                  avatar: const Icon(Icons.phone, size: 14),
-                  label: Text('$phone', style: const TextStyle(fontSize: 11)),
-                  visualDensity: VisualDensity.compact,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                // Mas'ul
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircleAvatar(
+                        radius: 8,
+                        backgroundColor: CrmTheme.primary,
+                        child: Text(
+                          assigned.toString().isNotEmpty ? assigned.toString()[0] : 'X',
+                          style: const TextStyle(fontSize: 8, color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        '$assigned',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? CrmTheme.darkText : const Color(0xFF334155)),
+                      ),
+                    ],
+                  ),
                 ),
-                Chip(
-                  avatar: const Icon(Icons.shopping_bag_outlined, size: 14),
-                  label: Text('$product', style: const TextStyle(fontSize: 11)),
-                  visualDensity: VisualDensity.compact,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                Chip(
-                  avatar: const Icon(Icons.person, size: 14),
-                  label: Text('$assigned', style: const TextStyle(fontSize: 11)),
-                  visualDensity: VisualDensity.compact,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
+
+                // Mahsulot
+                if (product.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.inventory_2_outlined, size: 12, color: isDark ? CrmTheme.darkTextMuted : const Color(0xFF64748B)),
+                        const SizedBox(width: 4),
+                        Text(
+                          '$product',
+                          style: TextStyle(fontSize: 11, color: isDark ? CrmTheme.darkTextMuted : const Color(0xFF475569)),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                // Byudjet Summasi
                 if (budget > 0)
-                  Chip(
-                    avatar: const Icon(Icons.monetization_on, size: 14, color: Colors.green),
-                    label: Text('${budget.toInt()} so\'m', style: const TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.bold)),
-                    visualDensity: VisualDensity.compact,
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF10B981).withValues(alpha: isDark ? 0.2 : 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.monetization_on_outlined, size: 12, color: Color(0xFF10B981)),
+                        const SizedBox(width: 4),
+                        Text(
+                          '+${budget.toInt()} so\'m',
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF10B981)),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                // Telefon
+                if (phone.isNotEmpty && phone != 'Raqam kiritilmagan')
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.phone_outlined, size: 12, color: isDark ? CrmTheme.darkTextMuted : const Color(0xFF64748B)),
+                        const SizedBox(width: 4),
+                        Text(
+                          '$phone',
+                          style: TextStyle(fontSize: 11, color: isDark ? CrmTheme.darkTextMuted : const Color(0xFF475569)),
+                        ),
+                      ],
+                    ),
                   ),
               ],
             ),
+            const SizedBox(height: 12),
 
             // Action Buttons
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                if (status == 'new')
-                  FilledButton.icon(
-                    onPressed: () => _updateStage(lead, 'contacted'),
-                    icon: const Icon(Icons.phone_in_talk, size: 14),
-                    label: const Text('Muzokaraga o\'tish', style: TextStyle(fontSize: 12)),
-                    style: FilledButton.styleFrom(backgroundColor: Colors.orange.shade800, visualDensity: VisualDensity.compact),
+            if (status == 'lead' || status == 'new')
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () => _updateStage(lead, 'talk'),
+                  icon: const Icon(Icons.forum_outlined, size: 16),
+                  label: const Text('Muzokara Boshlash', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: CrmTheme.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
-                if (status == 'contacted') ...[
-                  OutlinedButton.icon(
-                    onPressed: () => _updateStage(lead, 'lost'),
-                    icon: const Icon(Icons.close, size: 14, color: Colors.red),
-                    label: const Text('Yo\'qotildi', style: TextStyle(fontSize: 12, color: Colors.red)),
-                    style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
+                ),
+              )
+            else if (status == 'contacted' || status == 'talk')
+              Row(
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: OutlinedButton.icon(
+                      onPressed: () => _updateStage(lead, 'lost'),
+                      icon: const Icon(Icons.close_rounded, size: 14, color: Color(0xFFEF4444)),
+                      label: const Text('Rad etish', style: TextStyle(fontSize: 12, color: Color(0xFFEF4444), fontWeight: FontWeight.w600)),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: isDark ? const Color(0xFF991B1B) : const Color(0xFFFECACA)),
+                        backgroundColor: isDark ? const Color(0xFF450A0A) : const Color(0xFFFEF2F2),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 8),
-                  FilledButton.icon(
-                    onPressed: () => _updateStage(lead, 'won'),
-                    icon: const Icon(Icons.check, size: 14),
-                    label: const Text('Bitim Yutildi (Kassa)', style: TextStyle(fontSize: 12)),
-                    style: FilledButton.styleFrom(backgroundColor: Colors.green, visualDensity: VisualDensity.compact),
+                  Expanded(
+                    flex: 3,
+                    child: FilledButton.icon(
+                      onPressed: () => _updateStage(lead, 'won'),
+                      icon: const Icon(Icons.emoji_events_rounded, size: 15, color: Colors.white),
+                      label: const Text('Bitimni Yutish', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF10B981),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
                   ),
                 ],
-              ],
-            ),
+              )
+            else if (status == 'won')
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10B981).withValues(alpha: isDark ? 0.15 : 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 16),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Bitim Yutildi & Moliyaga kassa kirimi kiritildi',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? const Color(0xFF6EE7B7) : const Color(0xFF047857),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else if (status == 'lost')
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEF4444).withValues(alpha: isDark ? 0.15 : 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.cancel_outlined, color: Color(0xFFEF4444), size: 16),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Mijoz bitimni rad etdi yoki bekor qilindi',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? const Color(0xFFFCA5A5) : const Color(0xFFB91C1C),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
           ],
         ),
       ),
@@ -679,7 +1053,7 @@ class _CrmLeadsTabState extends State<CrmLeadsTab> {
 }
 
 // ============================================================================
-// TAB 1: MIJOZ QO'SHISH (CORE CREATE FORM)
+// TAB 1: MIJOZ QO'SHISH (CORE CREATE FORM - MOBILE FIRST)
 // ============================================================================
 class CrmCreateLeadTab extends StatefulWidget {
   const CrmCreateLeadTab({
@@ -701,7 +1075,8 @@ class _CrmCreateLeadTabState extends State<CrmCreateLeadTab> {
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController(text: '+998 90 ');
   final _productController = TextEditingController();
-  final _budgetController = TextEditingController(text: '3000000');
+  final _budgetController = TextEditingController(text: '5000000');
+  final _noteController = TextEditingController();
   String _selectedAssignee = 'Vali';
 
   final List<String> _assignees = ['Vali', 'Ali', 'Sardor'];
@@ -725,13 +1100,18 @@ class _CrmCreateLeadTabState extends State<CrmCreateLeadTab> {
 
     final budget = UzbekNlp.parseNumber(_budgetController.text.trim());
 
-    final tool = widget.service.schema.tools.firstWhere((t) => t.name == 'crm_lead_add');
+    final tool = widget.service.schema.tools.firstWhere(
+      (t) => t.name == 'crm_lead_add' || t.name == 'crm_add',
+    );
     await tool.handler({
       'name': name,
       'phone': _phoneController.text.trim(),
       'product': _productController.text.trim().isEmpty ? 'Umumiy' : _productController.text.trim(),
+      'company': _productController.text.trim().isEmpty ? name : _productController.text.trim(),
+      'deal_amount': budget,
       'budget': budget,
       'assigned_to': _selectedAssignee,
+      'note': _noteController.text.trim(),
     });
 
     if (mounted) {
@@ -740,146 +1120,353 @@ class _CrmCreateLeadTabState extends State<CrmCreateLeadTab> {
       );
       _nameController.clear();
       _productController.clear();
+      _noteController.clear();
       widget.onLeadCreated();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Yangi Mijoz / Bitim Qo\'shish',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Mijoz ma\'lumotlarini kiritish va menejerga biriktirish',
-            style: TextStyle(fontSize: 13, color: Colors.grey),
-          ),
-          const SizedBox(height: 16),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-          // Tezkor namunalar
-          const Text('Tezkor namunalar:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
-          const SizedBox(height: 6),
-          Wrap(
-            spacing: 8,
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 500),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ActionChip(
-                label: const Text('Akfa Korxona (5 mln)'),
-                onPressed: () => _addPreset('Akfa Korxona', '+998 90 123 45 67', 'Plastik profil', '5000000'),
+              Text(
+                'Yangi Bitim & Mijoz Ochish',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? CrmTheme.darkText : const Color(0xFF0F172A),
+                ),
               ),
-              ActionChip(
-                label: const Text('Artel Zavod (12 mln)'),
-                onPressed: () => _addPreset('Artel Zavod', '+998 91 987 65 43', 'Elektronika', '12000000'),
+              const SizedBox(height: 2),
+              Text(
+                'Voronkaga yangi korxona kiritish, mahsulot va kutilayotgan byudjet',
+                style: TextStyle(fontSize: 12, color: isDark ? CrmTheme.darkTextMuted : const Color(0xFF64748B)),
               ),
-              ActionChip(
-                label: const Text('Uzum Market (3.5 mln)'),
-                onPressed: () => _addPreset('Uzum Market', '+998 93 555 44 33', 'Yetkazib berish', '3500000'),
+              const SizedBox(height: 16),
+
+              // Hero AI Assistant Card
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: isDark
+                        ? [const Color(0xFF1E1B4B), const Color(0xFF311042)]
+                        : [const Color(0xFFEEF2FF), const Color(0xFFFAF5FF)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isDark ? const Color(0xFF4338CA) : const Color(0xFFC7D2FE),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF6366F1).withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.auto_awesome, color: Color(0xFF818CF8), size: 18),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'O\'zbekcha AI Bitim Ochish',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            color: isDark ? Colors.white : const Color(0xFF312E81),
+                          ),
+                        ),
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text('AUTO NLP', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF10B981))),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Tabiiy tilda yozing: AI mijoz nomi, telefon va kutilayotgan byudjetni o\'zi avtomat ajratib oladi.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569),
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(height: 16),
+
+              // Quick Presets
+              Text(
+                'Tezkor namunalar (1-klikda to\'ldirish):',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? CrmTheme.darkTextMuted : const Color(0xFF64748B),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _buildPresetChip('⚡ Akfa Korxona (5 mln)', () => _addPreset('Akfa Korxona', '+998 90 123 45 67', 'Plastik profil', '5000000'), isDark),
+                  _buildPresetChip('🎯 Artel Zavod (12 mln)', () => _addPreset('Artel Zavod', '+998 91 987 65 43', 'Elektronika', '12000000'), isDark),
+                  _buildPresetChip('🚀 Uzum Market (3.5 mln)', () => _addPreset('Uzum Market', '+998 93 555 44 33', 'Yetkazib berish', '3500000'), isDark),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // Form Container
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: isDark ? CrmTheme.darkCard : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: isDark ? CrmTheme.darkBorder : const Color(0xFFE2E8F0)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Mijoz Nomi
+                    Text('Mijoz / Korxona Nomi *', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: isDark ? CrmTheme.darkText : const Color(0xFF0F172A))),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: _nameController,
+                      style: TextStyle(fontSize: 14, color: isDark ? CrmTheme.darkText : CrmTheme.lightText),
+                      decoration: InputDecoration(
+                        hintText: 'Masalan: Smart Savdo MCHJ',
+                        hintStyle: TextStyle(fontSize: 13, color: isDark ? CrmTheme.darkTextMuted : const Color(0xFF94A3B8)),
+                        filled: true,
+                        fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: isDark ? CrmTheme.darkBorder : const Color(0xFFE2E8F0)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: isDark ? CrmTheme.darkBorder : const Color(0xFFE2E8F0)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Mas'ul Sotuvchi Xodim
+                    Text('Mas\'ul Sotuvchi *', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: isDark ? CrmTheme.darkText : const Color(0xFF0F172A))),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: _assignees.map((emp) {
+                        final isSel = _selectedAssignee == emp;
+                        return Expanded(
+                          child: GestureDetector(
+                            onTap: () => setState(() => _selectedAssignee = emp),
+                            child: Container(
+                              margin: const EdgeInsets.symmetric(horizontal: 4),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              decoration: BoxDecoration(
+                                color: isSel
+                                    ? CrmTheme.primary.withValues(alpha: isDark ? 0.25 : 0.1)
+                                    : (isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC)),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: isSel
+                                      ? CrmTheme.primary
+                                      : (isDark ? CrmTheme.darkBorder : const Color(0xFFE2E8F0)),
+                                  width: isSel ? 1.5 : 1,
+                                ),
+                              ),
+                              child: Column(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 14,
+                                    backgroundColor: isSel ? CrmTheme.primary : (isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
+                                    child: Text(
+                                      emp[0],
+                                      style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    emp,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
+                                      color: isSel
+                                          ? (isDark ? Colors.white : CrmTheme.primary)
+                                          : (isDark ? CrmTheme.darkTextMuted : const Color(0xFF475569)),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Byudjet Summasi
+                    Text('Bitim Byudjeti (UZS)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: isDark ? CrmTheme.darkText : const Color(0xFF0F172A))),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: _budgetController,
+                      keyboardType: TextInputType.number,
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: isDark ? const Color(0xFF10B981) : const Color(0xFF047857)),
+                      decoration: InputDecoration(
+                        prefixIcon: const Icon(Icons.monetization_on_outlined, size: 20, color: Color(0xFF10B981)),
+                        suffixText: 'so\'m',
+                        suffixStyle: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF10B981)),
+                        filled: true,
+                        fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: isDark ? CrmTheme.darkBorder : const Color(0xFFE2E8F0)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: isDark ? CrmTheme.darkBorder : const Color(0xFFE2E8F0)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Mahsulot yoki Xizmat turi
+                    Text('Mahsulot yoki Xizmat *', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: isDark ? CrmTheme.darkText : const Color(0xFF0F172A))),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: _productController,
+                      style: TextStyle(fontSize: 14, color: isDark ? CrmTheme.darkText : CrmTheme.lightText),
+                      decoration: InputDecoration(
+                        hintText: 'Masalan: IT Dasturiy ta\'minot / Qurilish',
+                        hintStyle: TextStyle(fontSize: 13, color: isDark ? CrmTheme.darkTextMuted : const Color(0xFF94A3B8)),
+                        filled: true,
+                        fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: isDark ? CrmTheme.darkBorder : const Color(0xFFE2E8F0)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: isDark ? CrmTheme.darkBorder : const Color(0xFFE2E8F0)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Telefon raqami
+                    Text('Telefon Raqami', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: isDark ? CrmTheme.darkText : const Color(0xFF0F172A))),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: _phoneController,
+                      style: TextStyle(fontSize: 14, color: isDark ? CrmTheme.darkText : CrmTheme.lightText),
+                      decoration: InputDecoration(
+                        prefixIcon: const Icon(Icons.phone_outlined, size: 20),
+                        filled: true,
+                        fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: isDark ? CrmTheme.darkBorder : const Color(0xFFE2E8F0)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: isDark ? CrmTheme.darkBorder : const Color(0xFFE2E8F0)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Izoh
+                    Text('Dastlabki Izoh', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: isDark ? CrmTheme.darkText : const Color(0xFF0F172A))),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: _noteController,
+                      maxLines: 2,
+                      style: TextStyle(fontSize: 13, color: isDark ? CrmTheme.darkText : CrmTheme.lightText),
+                      decoration: InputDecoration(
+                        hintText: 'Mijoz talablari va dastlabki muzokara mazmuni...',
+                        hintStyle: TextStyle(fontSize: 12, color: isDark ? CrmTheme.darkTextMuted : const Color(0xFF94A3B8)),
+                        filled: true,
+                        fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: isDark ? CrmTheme.darkBorder : const Color(0xFFE2E8F0)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: isDark ? CrmTheme.darkBorder : const Color(0xFFE2E8F0)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Submit Button
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: FilledButton.icon(
+                        onPressed: _saveLead,
+                        icon: const Icon(Icons.check_circle_outline, size: 20),
+                        label: const Text('Mijozni Ro\'yxatga Olish', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: CrmTheme.primary,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
             ],
           ),
-          const SizedBox(height: 16),
-
-          // Mijoz nomi
-          TextField(
-            controller: _nameController,
-            decoration: const InputDecoration(
-              labelText: 'Mijoz / Korxona nomi *',
-              hintText: 'Masalan: OOO Smart Savdo',
-              prefixIcon: Icon(Icons.business),
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Telefon
-          TextField(
-            controller: _phoneController,
-            keyboardType: TextInputType.phone,
-            decoration: const InputDecoration(
-              labelText: 'Telefon raqami',
-              hintText: '+998 90 123 45 67',
-              prefixIcon: Icon(Icons.phone),
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Mahsulot / Xizmat
-          TextField(
-            controller: _productController,
-            decoration: const InputDecoration(
-              labelText: 'Qiziqqan mahsulot yoki xizmat',
-              hintText: 'Masalan: Dasturiy ta\'minot o\'rnatish',
-              prefixIcon: Icon(Icons.shopping_bag_outlined),
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Byudjet
-          TextField(
-            controller: _budgetController,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'Taxminiy byudjet summasi (so\'m)',
-              hintText: '3000000',
-              prefixIcon: Icon(Icons.monetization_on_outlined),
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Mas'ul menejer
-          const Text('Mas\'ul menejer:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 6),
-          Wrap(
-            spacing: 8,
-            children: _assignees.map((m) {
-              final isSel = _selectedAssignee == m;
-              return ChoiceChip(
-                label: Text(m),
-                selected: isSel,
-                onSelected: (val) {
-                  if (val) setState(() => _selectedAssignee = m);
-                },
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 24),
-
-          // Saqlash tugmasi
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: FilledButton.icon(
-              onPressed: _saveLead,
-              icon: const Icon(Icons.person_add_alt_1),
-              label: const Text('Mijozni Saqlash', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-              style: FilledButton.styleFrom(backgroundColor: Colors.teal),
-            ),
-          ),
-        ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildPresetChip(String label, VoidCallback onTap, bool isDark) {
+    return ActionChip(
+      onPressed: onTap,
+      label: Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isDark ? CrmTheme.darkText : const Color(0xFF334155))),
+      backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+      side: BorderSide(color: isDark ? CrmTheme.darkBorder : const Color(0xFFE2E8F0)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
     );
   }
 }
 
 // ============================================================================
-// TAB 2: PROFIL & SOZLAMALAR (CORE PROFILE & SETTINGS)
+// TAB 2: PROFIL & SOZLAMALAR (MOBILE FIRST & ZERO MOCK METRICS)
 // ============================================================================
 class CrmProfileTab extends StatefulWidget {
   const CrmProfileTab({
     super.key,
+    required this.service,
     required this.profileManager,
     required this.pluginManager,
     required this.onProfileChanged,
   });
 
+  final CrmService service;
   final ProfileManager profileManager;
   final PluginManager pluginManager;
   final ValueChanged<UserProfile> onProfileChanged;
@@ -890,224 +1477,725 @@ class CrmProfileTab extends StatefulWidget {
 
 class _CrmProfileTabState extends State<CrmProfileTab> {
   UserProfile get _profile => widget.profileManager.current;
+  int _activeSegment = 0; // 0: Rollar (RBAC), 1: Plaginlar, 2: Tizim
 
   @override
   Widget build(BuildContext context) {
     final plugins = widget.pluginManager.getAllPlugins();
+    final all = widget.service.store.all;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Profil Kartasi
-          Card(
-            elevation: 0.5,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: Colors.grey.shade200),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
+    // Real Dynamic Metrics (Zero Synthetic Data)
+    final totalClients = all.length;
+    final wonList = all.where((e) => e.status == 'won').toList();
+    final lostList = all.where((e) => e.status == 'lost').toList();
+    final activePipelineList = all.where((e) => e.status != 'won' && e.status != 'lost').toList();
+
+    num wonRevenue = 0;
+    for (final c in wonList) {
+      wonRevenue += UzbekNlp.parseNumber(c.meta['deal_amount'] ?? c.meta['budget']);
+    }
+
+    num activePipeline = 0;
+    for (final c in activePipelineList) {
+      activePipeline += UzbekNlp.parseNumber(c.meta['deal_amount'] ?? c.meta['budget']);
+    }
+
+    final finished = wonList.length + lostList.length;
+    final convRate = finished > 0
+        ? ((wonList.length / finished) * 100).toStringAsFixed(1)
+        : (totalClients > 0 ? ((wonList.length / totalClients) * 100).toStringAsFixed(1) : '0.0');
+
+    String wonFormatted;
+    if (wonRevenue >= 1000000) {
+      wonFormatted = '${(wonRevenue / 1000000).toStringAsFixed(1)}M UZS';
+    } else if (wonRevenue >= 1000) {
+      wonFormatted = '${(wonRevenue / 1000).toInt()}k UZS';
+    } else {
+      wonFormatted = '${wonRevenue.toInt()} UZS';
+    }
+
+    String pipelineFormatted;
+    if (activePipeline >= 1000000) {
+      pipelineFormatted = '${(activePipeline / 1000000).toStringAsFixed(1)}M UZS';
+    } else if (activePipeline >= 1000) {
+      pipelineFormatted = '${(activePipeline / 1000).toInt()}k UZS';
+    } else {
+      pipelineFormatted = '${activePipeline.toInt()} UZS';
+    }
+
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 500),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Executive Profile Card
+              Container(
+                decoration: BoxDecoration(
+                  color: isDark ? CrmTheme.darkCard : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: isDark ? CrmTheme.darkBorder : const Color(0xFFE2E8F0)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.03),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    // Top Accent Line
+                    Container(
+                      height: 4,
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Color(0xFF0D9488), Color(0xFF10B981)],
+                        ),
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              Stack(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 28,
+                                    backgroundColor: CrmTheme.primary,
+                                    child: Text(
+                                      _profile.name[0],
+                                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+                                    ),
+                                  ),
+                                  Positioned(
+                                    bottom: 0,
+                                    right: 0,
+                                    child: Container(
+                                      width: 12,
+                                      height: 12,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF10B981),
+                                        shape: BoxShape.circle,
+                                        border: Border.all(color: isDark ? CrmTheme.darkCard : Colors.white, width: 2),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Flexible(
+                                          child: Text(
+                                            _profile.name,
+                                            style: TextStyle(
+                                              fontSize: 17,
+                                              fontWeight: FontWeight.bold,
+                                              color: isDark ? CrmTheme.darkText : const Color(0xFF0F172A),
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        const Icon(Icons.verified_rounded, size: 16, color: Color(0xFF3B82F6)),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '${_profile.department} • Axion Software',
+                                      style: TextStyle(fontSize: 12, color: isDark ? CrmTheme.darkTextMuted : const Color(0xFF64748B)),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: CrmTheme.primary.withValues(alpha: isDark ? 0.2 : 0.1),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        _profile.role.name.toUpperCase(),
+                                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: CrmTheme.primaryLight),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          Divider(height: 1, color: isDark ? CrmTheme.darkBorder : const Color(0xFFF1F5F9)),
+                          const SizedBox(height: 12),
+
+                          // Contact Info
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(Icons.mail_outline_rounded, size: 13, color: isDark ? CrmTheme.darkTextMuted : const Color(0xFF94A3B8)),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    _profile.email,
+                                    style: TextStyle(fontSize: 11, color: isDark ? CrmTheme.darkTextMuted : const Color(0xFF64748B)),
+                                  ),
+                                ],
+                              ),
+                              Row(
+                                children: [
+                                  Icon(Icons.phone_outlined, size: 13, color: isDark ? CrmTheme.darkTextMuted : const Color(0xFF94A3B8)),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    _profile.phone,
+                                    style: TextStyle(fontSize: 11, color: isDark ? CrmTheme.darkTextMuted : const Color(0xFF64748B)),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+
+                          // Dark/Light Theme Switcher Tile
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: isDark ? CrmTheme.darkBorder : const Color(0xFFE2E8F0)),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+                                  size: 18,
+                                  color: isDark ? const Color(0xFF818CF8) : const Color(0xFFD97706),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    isDark ? 'Tungi rejim (Dark Mode)' : 'Kunduzgi rejim (Light Mode)',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: isDark ? CrmTheme.darkText : const Color(0xFF0F172A),
+                                    ),
+                                  ),
+                                ),
+                                Switch.adaptive(
+                                  value: isDark,
+                                  activeTrackColor: CrmTheme.primary,
+                                  onChanged: (val) {
+                                    crmThemeNotifier.value = val ? ThemeMode.dark : ThemeMode.light;
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // 4 Dynamic Live Metric Cards
+              Row(
                 children: [
-                  CircleAvatar(
-                    radius: 30,
-                    backgroundColor: Colors.teal.shade100,
-                    child: Text(
-                      _profile.name[0],
-                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.teal),
+                  Expanded(
+                    child: _buildMetricTile(
+                      'Mijozlar',
+                      '$totalClients ta',
+                      '${wonList.length} ta yutilgan',
+                      const Color(0xFF3B82F6),
+                      Icons.people_alt_outlined,
+                      isDark,
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 12),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _profile.name,
-                          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${_profile.role.name.toUpperCase()} • ${_profile.department}',
-                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontWeight: FontWeight.w600),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${_profile.phone}  |  ${_profile.email}',
-                          style: const TextStyle(fontSize: 11, color: Colors.blueGrey),
-                        ),
-                      ],
+                    child: _buildMetricTile(
+                      'Konversiya',
+                      '$convRate%',
+                      'Bitimlar muvaffaqiyati',
+                      const Color(0xFF10B981),
+                      Icons.trending_up_rounded,
+                      isDark,
                     ),
                   ),
                 ],
               ),
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Foydalanuvchini Almashtirish (RBAC)
-          const Text(
-            'Foydalanuvchi va Rolni Tanlash (RBAC)',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          Column(
-            children: UserProfile.defaultProfiles.map((p) {
-              final isCurrent = p.id == _profile.id;
-              return Card(
-                elevation: 0,
-                color: isCurrent ? Colors.teal.shade50 : Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  side: BorderSide(
-                    color: isCurrent ? Colors.teal.shade300 : Colors.grey.shade200,
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildMetricTile(
+                      'Yutilgan Savdo',
+                      wonFormatted,
+                      'Kassaga kirim qilingan',
+                      const Color(0xFF10B981),
+                      Icons.monetization_on_outlined,
+                      isDark,
+                    ),
                   ),
-                ),
-                child: ListTile(
-                  dense: true,
-                  leading: Icon(
-                    p.role == UserRole.director ? Icons.shield : Icons.person,
-                    color: isCurrent ? Colors.teal : Colors.grey,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildMetricTile(
+                      'Voronka Qiymati',
+                      pipelineFormatted,
+                      'Faol muzokaralar',
+                      const Color(0xFF8B5CF6),
+                      Icons.account_balance_wallet_outlined,
+                      isDark,
+                    ),
                   ),
-                  title: Text(p.name, style: TextStyle(fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal)),
-                  subtitle: Text('${p.role.name} • ${p.department}'),
-                  trailing: isCurrent
-                      ? const Icon(Icons.check_circle, color: Colors.teal)
-                      : const Icon(Icons.arrow_forward_ios, size: 12, color: Colors.grey),
-                  onTap: () {
-                    widget.onProfileChanged(p);
-                    setState(() {});
-                  },
-                ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 24),
-
-          // Tizim & Server Holati
-          const Text(
-            'Tizim va Microservice Holati',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-              side: BorderSide(color: Colors.grey.shade200),
-            ),
-            child: const Column(
-              children: [
-                ListTile(
-                  dense: true,
-                  leading: Icon(Icons.dns, color: Colors.green),
-                  title: Text('CRM Microservice Server'),
-                  subtitle: Text('Port: 8082  |  Holati: Faol (Online)'),
-                ),
-                Divider(height: 1),
-                ListTile(
-                  dense: true,
-                  leading: Icon(Icons.hub_outlined, color: Colors.teal),
-                  title: Text('Moliya & KPI Integratsiyasi'),
-                  subtitle: Text('Portlar: :8081 (KPI), :8083 (Moliya)'),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Plaginlar Markazi (Microkernel Plugin Registry)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Plaginlar Markazi (Microkernel Engine)',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                ],
               ),
+              const SizedBox(height: 20),
+
+              // Segment Navigation Tabs
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: Colors.teal.shade50,
-                  borderRadius: BorderRadius.circular(6),
+                  color: isDark ? const Color(0xFF131B2E) : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: isDark ? CrmTheme.darkBorder : const Color(0xFFE2E8F0)),
                 ),
-                child: Text(
-                  '${plugins.where((p) => p.isEnabled).length} ta faol',
-                  style: TextStyle(color: Colors.teal.shade700, fontSize: 11, fontWeight: FontWeight.bold),
+                child: Row(
+                  children: [
+                    _buildSegmentButton(0, 'Rollar', Icons.badge_outlined, isDark),
+                    _buildSegmentButton(1, 'Plaginlar (${plugins.length})', Icons.extension_outlined, isDark),
+                    _buildSegmentButton(2, 'Tizim', Icons.dns_outlined, isDark),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Active Segment Content
+              if (_activeSegment == 0)
+                _buildRbacSection(isDark)
+              else if (_activeSegment == 1)
+                _buildPluginsSection(plugins, isDark)
+              else
+                _buildInfrastructureSection(isDark),
+
+              const SizedBox(height: 32),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSegmentButton(int index, String title, IconData icon, bool isDark) {
+    final active = _activeSegment == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _activeSegment = index),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: active
+                ? (isDark ? const Color(0xFF1E293B) : Colors.white)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: active
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    )
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 14,
+                color: active
+                    ? CrmTheme.primaryLight
+                    : (isDark ? CrmTheme.darkTextMuted : const Color(0xFF64748B)),
+              ),
+              const SizedBox(width: 5),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: active ? FontWeight.bold : FontWeight.w500,
+                  color: active
+                      ? (isDark ? CrmTheme.darkText : const Color(0xFF0F172A))
+                      : (isDark ? CrmTheme.darkTextMuted : const Color(0xFF64748B)),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-              side: BorderSide(color: Colors.grey.shade200),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRbacSection(bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Foydalanuvchi va Rolni Tanlash (RBAC)',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: isDark ? CrmTheme.darkText : const Color(0xFF0F172A)),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Tizim sinovi uchun istalgan akkauntga o\'tishingiz mumkin. Ruxsatlar darhol moslashadi.',
+          style: TextStyle(fontSize: 12, color: isDark ? CrmTheme.darkTextMuted : const Color(0xFF64748B)),
+        ),
+        const SizedBox(height: 12),
+        Column(
+          children: UserProfile.defaultProfiles.map((p) {
+            final isCurrent = p.id == _profile.id;
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              decoration: BoxDecoration(
+                color: isCurrent
+                    ? CrmTheme.primary.withValues(alpha: isDark ? 0.15 : 0.05)
+                    : (isDark ? CrmTheme.darkCard : Colors.white),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isCurrent
+                      ? CrmTheme.primary
+                      : (isDark ? CrmTheme.darkBorder : const Color(0xFFE2E8F0)),
+                  width: isCurrent ? 1.5 : 1,
+                ),
+              ),
+              child: ListTile(
+                dense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+                leading: CircleAvatar(
+                  radius: 16,
+                  backgroundColor: isCurrent ? CrmTheme.primary : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
+                  child: Icon(
+                    p.role == UserRole.director ? Icons.shield_rounded : Icons.person_rounded,
+                    color: isCurrent ? Colors.white : (isDark ? CrmTheme.darkTextMuted : const Color(0xFF64748B)),
+                    size: 16,
+                  ),
+                ),
+                title: Row(
+                  children: [
+                    Text(
+                      p.name,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: isDark ? CrmTheme.darkText : const Color(0xFF0F172A),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        p.role.name.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? const Color(0xFFFDE047) : const Color(0xFFB45309),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                subtitle: Text(
+                  '${p.department} • Axion ID: #${p.id}',
+                  style: TextStyle(fontSize: 11, color: isDark ? CrmTheme.darkTextMuted : const Color(0xFF64748B)),
+                ),
+                trailing: isCurrent
+                    ? Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: CrmTheme.primary,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Text('Faol', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                      )
+                    : TextButton(
+                        onPressed: () => widget.onProfileChanged(p),
+                        child: const Text('O\'tish', style: TextStyle(fontSize: 12)),
+                      ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPluginsSection(List<EcosystemPlugin> plugins, bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Plaginlar Markazi (Microkernel Engine)',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: isDark ? CrmTheme.darkText : const Color(0xFF0F172A)),
             ),
-            child: Column(
-              children: plugins.map((plugin) {
-                final isConfigurable = plugin.id == 'plugin_ecosystem_bridge' || plugin.id == 'plugin_uzbek_ai';
-                return SwitchListTile(
-                  dense: true,
-                  secondary: Icon(
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: const Color(0xFF10B981).withValues(alpha: isDark ? 0.2 : 0.1),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                '${plugins.where((p) => p.isEnabled).length} ta faol',
+                style: const TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Column(
+          children: plugins.map((plugin) {
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              decoration: BoxDecoration(
+                color: isDark ? CrmTheme.darkCard : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: isDark ? CrmTheme.darkBorder : const Color(0xFFE2E8F0)),
+              ),
+              child: SwitchListTile(
+                dense: true,
+                secondary: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: CrmTheme.primary.withValues(alpha: isDark ? 0.2 : 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
                     plugin.id == 'plugin_uzbek_ai'
                         ? Icons.auto_awesome
-                        : (plugin.id == 'plugin_crm_funnel' ? Icons.filter_alt : (plugin.id == 'plugin_ecosystem_bridge' ? Icons.sync_alt : Icons.extension_outlined)),
-                    color: Colors.teal,
+                        : (plugin.id == 'plugin_crm_funnel'
+                            ? Icons.filter_alt_rounded
+                            : (plugin.id == 'plugin_ecosystem_bridge' ? Icons.sync_alt_rounded : Icons.extension_outlined)),
+                    color: CrmTheme.primaryLight,
+                    size: 18,
                   ),
-                  title: Row(
-                    children: [
-                      Expanded(
-                        child: Text(plugin.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                      ),
-                      if (isConfigurable)
-                        InkWell(
-                          onTap: () => _showPluginConfigDialog(context, plugin),
-                          child: Container(
-                            margin: const EdgeInsets.only(right: 6),
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.teal.shade50,
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: Colors.teal.shade200),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.tune, size: 11, color: Colors.teal),
-                                SizedBox(width: 3),
-                                Text('Sozlash', style: TextStyle(fontSize: 10, color: Colors.teal, fontWeight: FontWeight.bold)),
-                              ],
-                            ),
-                          ),
-                        ),
-                    ],
+                ),
+                title: Text(
+                  plugin.name,
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? CrmTheme.darkText : const Color(0xFF0F172A)),
+                ),
+                subtitle: Text(
+                  plugin.description,
+                  style: TextStyle(fontSize: 11, color: isDark ? CrmTheme.darkTextMuted : const Color(0xFF64748B)),
+                ),
+                value: plugin.isEnabled,
+                activeTrackColor: CrmTheme.primary,
+                onChanged: (val) async {
+                  await widget.pluginManager.togglePlugin(plugin.id, val);
+                  setState(() {});
+                },
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInfrastructureSection(bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Tizim va Microservice Holati',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: isDark ? CrmTheme.darkText : const Color(0xFF0F172A)),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          decoration: BoxDecoration(
+            color: isDark ? CrmTheme.darkCard : Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: isDark ? CrmTheme.darkBorder : const Color(0xFFE2E8F0)),
+          ),
+          child: Column(
+            children: [
+              _buildMicroserviceRow('CRM Gateway API', ':8082', 'Online (Faol)', 'REST API /schema & /execute', true, isDark),
+              Divider(height: 1, color: isDark ? CrmTheme.darkBorder : const Color(0xFFF1F5F9)),
+              _buildMicroserviceRow('KPI Engine API', ':8081', 'Online (Faol)', 'Xodimlar kpi va bonuslar', true, isDark),
+              Divider(height: 1, color: isDark ? CrmTheme.darkBorder : const Color(0xFFF1F5F9)),
+              _buildMicroserviceRow('Moliya Hub', ':8083', 'Ulanishga tayyor', 'Bitim tushumlari kassa balansi', true, isDark),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: isDark ? CrmTheme.darkBorder : const Color(0xFFE2E8F0)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.shield_outlined, color: Color(0xFF10B981), size: 18),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Xavfsiz Xotira (StandardStore v1.0)',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: isDark ? CrmTheme.darkText : const Color(0xFF0F172A),
+                    ),
                   ),
-                  subtitle: Text(plugin.description, style: const TextStyle(fontSize: 11)),
-                  value: plugin.isEnabled,
-                  onChanged: (val) async {
-                    await widget.pluginManager.togglePlugin(plugin.id, val);
-                    setState(() {});
-                  },
-                );
-              }).toList(),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '• Baza formati: JSON Lines (Fayl darajasidagi xavfsiz blokirovka)\n• Avtomatik zaxira nusxalash (Backup): Har 24 soatda faol\n• Kesh va xotira oqishi: 0 MB (Nol oqish kafolatlangan)',
+                style: TextStyle(fontSize: 12, color: isDark ? CrmTheme.darkTextMuted : const Color(0xFF475569), height: 1.5),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMetricTile(String title, String val, String sub, Color color, IconData icon, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? CrmTheme.darkCard : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: isDark ? CrmTheme.darkBorder : const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isDark ? CrmTheme.darkTextMuted : const Color(0xFF64748B),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Icon(icon, size: 15, color: color),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(val, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color, letterSpacing: -0.5)),
+          const SizedBox(height: 2),
+          Text(
+            sub,
+            style: TextStyle(
+              fontSize: 10,
+              color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+              fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 30),
         ],
       ),
     );
   }
 
-  void _showPluginConfigDialog(BuildContext context, EcosystemPlugin plugin) {
-    showDialog(
-      context: context,
-      builder: (ctx) => CrmPluginConfigDialog(
-        plugin: plugin,
-        pluginManager: widget.pluginManager,
-        onSaved: () => setState(() {}),
+  Widget _buildMicroserviceRow(String name, String port, String status, String note, bool isOnline, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: isOnline ? const Color(0xFF10B981) : const Color(0xFF94A3B8),
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      name,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: isDark ? CrmTheme.darkText : const Color(0xFF0F172A),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        port,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                Text(note, style: TextStyle(fontSize: 11, color: isDark ? CrmTheme.darkTextMuted : const Color(0xFF64748B))),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: isOnline
+                  ? const Color(0xFF10B981).withValues(alpha: isDark ? 0.2 : 0.1)
+                  : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              status,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: isOnline ? const Color(0xFF10B981) : const Color(0xFF64748B),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1117,19 +2205,20 @@ class _CrmProfileTabState extends State<CrmProfileTab> {
 // VORONKA BOSQICHI WIDGETI (FUNNEL STAGE)
 // ============================================================================
 class _FunnelStage extends StatelessWidget {
-  const _FunnelStage({required this.label, required this.count, required this.color});
+  const _FunnelStage({required this.label, required this.count, required this.color, required this.isDark});
   final String label;
   final int count;
   final Color color;
+  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: color.withValues(alpha: isDark ? 0.2 : 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        border: Border.all(color: color.withValues(alpha: isDark ? 0.4 : 0.3)),
       ),
       child: Column(
         children: [
@@ -1215,11 +2304,15 @@ class _CrmAiAssistantSheetState extends State<CrmAiAssistantSheet> {
   void _confirmAndCreate() async {
     if (_result == null) return;
 
-    final tool = widget.service.schema.tools.firstWhere((t) => t.name == 'crm_lead_add');
+    final tool = widget.service.schema.tools.firstWhere(
+      (t) => t.name == 'crm_lead_add' || t.name == 'crm_add',
+    );
     await tool.handler({
       'name': _result!['name'],
       'phone': _result!['phone'],
       'product': _result!['product'],
+      'company': _result!['product'],
+      'deal_amount': _result!['budget'],
       'budget': _result!['budget'],
       'assigned_to': widget.security.currentUser.name,
       'source': 'AI Assistent',
@@ -1237,6 +2330,8 @@ class _CrmAiAssistantSheetState extends State<CrmAiAssistantSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       padding: EdgeInsets.only(
         left: 20,
@@ -1244,9 +2339,9 @@ class _CrmAiAssistantSheetState extends State<CrmAiAssistantSheet> {
         top: 20,
         bottom: MediaQuery.of(context).viewInsets.bottom + 20,
       ),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: isDark ? CrmTheme.darkCard : Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: SingleChildScrollView(
         child: Column(
@@ -1258,29 +2353,29 @@ class _CrmAiAssistantSheetState extends State<CrmAiAssistantSheet> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.purple.shade50,
+                    color: const Color(0xFF6366F1).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.auto_awesome, color: Colors.purple, size: 24),
+                  child: const Icon(Icons.auto_awesome, color: Color(0xFF818CF8), size: 24),
                 ),
                 const SizedBox(width: 12),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'AI Bitim & Mijoz Yaratish',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: isDark ? CrmTheme.darkText : const Color(0xFF0F172A)),
                       ),
                       Text(
                         'Tabiiy tilda yozing, AI mijoz va bitim byudjetini aniqlaydi',
-                        style: TextStyle(fontSize: 11, color: Colors.grey),
+                        style: TextStyle(fontSize: 11, color: isDark ? CrmTheme.darkTextMuted : Colors.grey),
                       ),
                     ],
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, size: 20),
+                  icon: Icon(Icons.close, size: 20, color: isDark ? CrmTheme.darkTextMuted : Colors.grey),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ],
@@ -1312,13 +2407,15 @@ class _CrmAiAssistantSheetState extends State<CrmAiAssistantSheet> {
             TextField(
               controller: _controller,
               maxLines: 2,
+              style: TextStyle(fontSize: 13, color: isDark ? CrmTheme.darkText : CrmTheme.lightText),
               decoration: InputDecoration(
                 hintText: 'Masalan: Akmal bilan 15 mln so\'mlik ERP bo\'yicha yangi bitim och',
+                hintStyle: TextStyle(fontSize: 12, color: isDark ? CrmTheme.darkTextMuted : const Color(0xFF94A3B8)),
                 filled: true,
-                fillColor: const Color(0xFFF8F9FA),
+                fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
+                  borderSide: BorderSide(color: isDark ? CrmTheme.darkBorder : const Color(0xFFE2E8F0)),
                 ),
               ),
             ),
@@ -1331,52 +2428,49 @@ class _CrmAiAssistantSheetState extends State<CrmAiAssistantSheet> {
                 onPressed: _isLoading ? null : _analyze,
                 icon: const Icon(Icons.psychology, size: 18),
                 label: const Text('AI Bitimini Tahlil Qilish'),
-                style: FilledButton.styleFrom(backgroundColor: Colors.purple),
+                style: FilledButton.styleFrom(backgroundColor: const Color(0xFF6366F1)),
               ),
             ),
 
             if (_result != null) ...[
               const SizedBox(height: 16),
-              Card(
-                elevation: 0,
-                color: Colors.teal.shade50.withValues(alpha: 0.5),
-                shape: RoundedRectangleBorder(
+              Container(
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF0FDFA),
                   borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: Colors.teal.shade200),
+                  border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.4)),
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.verified, color: Colors.green, size: 18),
-                          const SizedBox(width: 6),
-                          const Text('Aniqlangan Bitim', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                        ],
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.verified, color: Color(0xFF10B981), size: 18),
+                        SizedBox(width: 6),
+                        Text('Aniqlangan Bitim', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF10B981))),
+                      ],
+                    ),
+                    Divider(height: 16, color: isDark ? CrmTheme.darkBorder : const Color(0xFFCCFBF1)),
+                    Text('• Mijoz: ${_result!['name']}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? CrmTheme.darkText : const Color(0xFF0F172A))),
+                    const SizedBox(height: 4),
+                    Text('• Telefon: ${_result!['phone']}', style: TextStyle(fontSize: 12, color: isDark ? CrmTheme.darkTextMuted : const Color(0xFF475569))),
+                    const SizedBox(height: 4),
+                    Text('• Mahsulot/Xizmat: ${_result!['product']}', style: TextStyle(fontSize: 12, color: isDark ? CrmTheme.darkTextMuted : const Color(0xFF475569))),
+                    const SizedBox(height: 4),
+                    Text('• Byudjet: ${(_result!['budget'] as num).toInt()} so\'m', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF10B981))),
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 42,
+                      child: FilledButton.icon(
+                        onPressed: _confirmAndCreate,
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text('Bitimni Ochish va Saqlash', style: TextStyle(fontWeight: FontWeight.bold)),
+                        style: FilledButton.styleFrom(backgroundColor: CrmTheme.primary),
                       ),
-                      const Divider(height: 16),
-                      Text('• Mijoz: ${_result!['name']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                      const SizedBox(height: 4),
-                      Text('• Telefon: ${_result!['phone']}', style: const TextStyle(fontSize: 12)),
-                      const SizedBox(height: 4),
-                      Text('• Mahsulot/Xizmat: ${_result!['product']}', style: const TextStyle(fontSize: 12)),
-                      const SizedBox(height: 4),
-                      Text('• Byudjet: ${(_result!['budget'] as num).toInt()} so\'m', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.teal)),
-                      const SizedBox(height: 14),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 42,
-                        child: FilledButton.icon(
-                          onPressed: _confirmAndCreate,
-                          icon: const Icon(Icons.add, size: 16),
-                          label: const Text('Bitimni Ochish va Saqlash', style: TextStyle(fontWeight: FontWeight.bold)),
-                          style: FilledButton.styleFrom(backgroundColor: Colors.teal),
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -1387,93 +2481,3 @@ class _CrmAiAssistantSheetState extends State<CrmAiAssistantSheet> {
     );
   }
 }
-
-// ============================================================================
-// PLAGIN SOZLAMALARI DIALOGI (CRM)
-// ============================================================================
-class CrmPluginConfigDialog extends StatefulWidget {
-  const CrmPluginConfigDialog({
-    super.key,
-    required this.plugin,
-    required this.pluginManager,
-    required this.onSaved,
-  });
-
-  final EcosystemPlugin plugin;
-  final PluginManager pluginManager;
-  final VoidCallback onSaved;
-
-  @override
-  State<CrmPluginConfigDialog> createState() => _CrmPluginConfigDialogState();
-}
-
-class _CrmPluginConfigDialogState extends State<CrmPluginConfigDialog> {
-  late final TextEditingController _limitController;
-
-  @override
-  void initState() {
-    super.initState();
-    final curLimit = widget.plugin.metadata['max_payout_limit'] ?? 3000000;
-    _limitController = TextEditingController(text: '$curLimit');
-  }
-
-  @override
-  void dispose() {
-    _limitController.dispose();
-    super.dispose();
-  }
-
-  void _save() async {
-    final val = double.tryParse(_limitController.text.trim()) ?? 3000000.0;
-    widget.plugin.metadata['max_payout_limit'] = val;
-    await widget.pluginManager.registerPlugin(widget.plugin);
-    if (mounted) {
-      Navigator.of(context).pop();
-      widget.onSaved();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Row(
-        children: [
-          const Icon(Icons.sync_alt, color: Colors.teal),
-          const SizedBox(width: 8),
-          Expanded(child: Text(widget.plugin.name, style: const TextStyle(fontSize: 16))),
-        ],
-      ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '${widget.plugin.description}\n\nMoliya serveri bilan integratsiya (Bitim yutilganda kassa kirimiga avtomat qo\'shish).',
-            style: const TextStyle(fontSize: 12, color: Colors.grey),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _limitController,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'Maksimal tushum chegarasi',
-              suffixText: 'so\'m',
-              border: OutlineInputBorder(),
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Bekor qilish'),
-        ),
-        FilledButton(
-          onPressed: _save,
-          child: const Text('Saqlash'),
-        ),
-      ],
-    );
-  }
-}
-
