@@ -138,6 +138,20 @@ class _CrmMainShellState extends State<CrmMainShell> {
     if (mounted) setState(() {});
   }
 
+  void _openAiLeadAssistant(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => CrmAiAssistantSheet(
+        pluginManager: widget.pluginManager,
+        service: widget.service,
+        security: _security,
+        onLeadCreated: () => setState(() => _currentIndex = 0),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final newCount = widget.service.store.all.where((e) => e.status == 'new' || e.status == 'contacted').length;
@@ -193,6 +207,13 @@ class _CrmMainShellState extends State<CrmMainShell> {
           ],
         ),
         actions: [
+          // Plagin: O'zbekcha AI Assistent
+          if (widget.pluginManager.isPluginActive('plugin_uzbek_ai'))
+            IconButton(
+              icon: const Icon(Icons.auto_awesome, color: Colors.purple),
+              tooltip: "O'zbekcha AI Bitim Ochish",
+              onPressed: () => _openAiLeadAssistant(context),
+            ),
           Container(
             margin: const EdgeInsets.only(right: 16),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -219,6 +240,7 @@ class _CrmMainShellState extends State<CrmMainShell> {
           CrmLeadsTab(
             service: widget.service,
             security: _security,
+            pluginManager: widget.pluginManager,
             onGoToCreate: () => setState(() => _currentIndex = 1),
           ),
           // Tab 1: Mijoz Qo'shish (Core Create Form)
@@ -273,11 +295,13 @@ class CrmLeadsTab extends StatefulWidget {
     required this.service,
     required this.security,
     required this.onGoToCreate,
+    this.pluginManager,
   });
 
   final CrmService service;
   final SecurityManager security;
   final VoidCallback onGoToCreate;
+  final PluginManager? pluginManager;
 
   @override
   State<CrmLeadsTab> createState() => _CrmLeadsTabState();
@@ -313,7 +337,21 @@ class _CrmLeadsTabState extends State<CrmLeadsTab> {
 
     // Agar bitim yutilsa (won), moliyaga avtomatik kirim
     if (nextStage == 'won') {
-      final amount = UzbekNlp.parseNumber(lead.meta['budget']);
+      final amount = UzbekNlp.parseNumber(lead.meta['budget']).toDouble();
+
+      // 1. Ekotizim Voqealar Shinası (EventBus) orqali e'lon qilish -> Bridge plaginini avtomat ishga tushiradi
+      await EventBus.instance.publish(EcosystemEvent(
+        name: 'crm_lead_won',
+        sourceApp: 'crm',
+        payload: {
+          'lead_id': lead.id,
+          'lead_name': lead.name,
+          'product': lead.meta['product'] ?? 'Xizmat',
+          'budget': amount,
+        },
+      ));
+
+      // 2. Mahalliy zaxira yozish
       if (amount > 0) {
         await recordFinanceDealIncome(
           client: lead.name,
@@ -389,7 +427,7 @@ class _CrmLeadsTabState extends State<CrmLeadsTab> {
                       selected: _stageFilter == 'new',
                       label: Text('Yangi ($newCount)'),
                       selectedColor: Colors.blue.shade100,
-                      onSelected: (_) => setState(() => _stageFilter = 'new'),
+                      onSelected: (_) => setState(() => _stageFilter == 'new'),
                     ),
                     const SizedBox(width: 6),
                     FilterChip(
@@ -418,6 +456,55 @@ class _CrmLeadsTabState extends State<CrmLeadsTab> {
             ],
           ),
         ),
+
+        // Plagin: Savdo Voronkasi (Funnel Slot)
+        if (widget.pluginManager?.isPluginActive('plugin_crm_funnel') == true)
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.teal.shade50.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.teal.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.filter_alt, size: 16, color: Colors.teal),
+                      const SizedBox(width: 6),
+                      const Text(
+                        'Savdo Voronkasi (Funnel Plagini)',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.teal),
+                      ),
+                      const Spacer(),
+                      Text(
+                        'Konversiya: ${all.isNotEmpty ? ((wonCount / all.length) * 100).toInt() : 0}%',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.teal),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(child: _FunnelStage(label: 'Yangi', count: newCount, color: Colors.blue)),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.arrow_right_alt, size: 16, color: Colors.grey),
+                      const SizedBox(width: 4),
+                      Expanded(child: _FunnelStage(label: 'Muzokara', count: contactedCount, color: Colors.orange)),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.arrow_right_alt, size: 16, color: Colors.grey),
+                      const SizedBox(width: 4),
+                      Expanded(child: _FunnelStage(label: 'Yutildi', count: wonCount, color: Colors.green)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
         const Divider(height: 1),
 
         // Ro'yxat
@@ -961,10 +1048,43 @@ class _CrmProfileTabState extends State<CrmProfileTab> {
             ),
             child: Column(
               children: plugins.map((plugin) {
+                final isConfigurable = plugin.id == 'plugin_ecosystem_bridge' || plugin.id == 'plugin_uzbek_ai';
                 return SwitchListTile(
                   dense: true,
-                  secondary: const Icon(Icons.extension_outlined, color: Colors.teal),
-                  title: Text(plugin.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  secondary: Icon(
+                    plugin.id == 'plugin_uzbek_ai'
+                        ? Icons.auto_awesome
+                        : (plugin.id == 'plugin_crm_funnel' ? Icons.filter_alt : (plugin.id == 'plugin_ecosystem_bridge' ? Icons.sync_alt : Icons.extension_outlined)),
+                    color: Colors.teal,
+                  ),
+                  title: Row(
+                    children: [
+                      Expanded(
+                        child: Text(plugin.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                      ),
+                      if (isConfigurable)
+                        InkWell(
+                          onTap: () => _showPluginConfigDialog(context, plugin),
+                          child: Container(
+                            margin: const EdgeInsets.only(right: 6),
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.teal.shade50,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: Colors.teal.shade200),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.tune, size: 11, color: Colors.teal),
+                                SizedBox(width: 3),
+                                Text('Sozlash', style: TextStyle(fontSize: 10, color: Colors.teal, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                   subtitle: Text(plugin.description, style: const TextStyle(fontSize: 11)),
                   value: plugin.isEnabled,
                   onChanged: (val) async {
@@ -980,4 +1100,380 @@ class _CrmProfileTabState extends State<CrmProfileTab> {
       ),
     );
   }
+
+  void _showPluginConfigDialog(BuildContext context, EcosystemPlugin plugin) {
+    showDialog(
+      context: context,
+      builder: (ctx) => CrmPluginConfigDialog(
+        plugin: plugin,
+        pluginManager: widget.pluginManager,
+        onSaved: () => setState(() {}),
+      ),
+    );
+  }
 }
+
+// ============================================================================
+// VORONKA BOSQICHI WIDGETI (FUNNEL STAGE)
+// ============================================================================
+class _FunnelStage extends StatelessWidget {
+  const _FunnelStage({required this.label, required this.count, required this.color});
+  final String label;
+  final int count;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        children: [
+          Text('$count', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: color)),
+          Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// PLAGIN: CRM AI BITIM YARATISH (MODAL BOTTOM SHEET)
+// ============================================================================
+class CrmAiAssistantSheet extends StatefulWidget {
+  const CrmAiAssistantSheet({
+    super.key,
+    required this.pluginManager,
+    required this.service,
+    required this.security,
+    required this.onLeadCreated,
+  });
+
+  final PluginManager pluginManager;
+  final CrmService service;
+  final SecurityManager security;
+  final VoidCallback onLeadCreated;
+
+  @override
+  State<CrmAiAssistantSheet> createState() => _CrmAiAssistantSheetState();
+}
+
+class _CrmAiAssistantSheetState extends State<CrmAiAssistantSheet> {
+  final _controller = TextEditingController(
+    text: "Akmal bilan 15 000 000 so'mlik ERP Tizimi bo'yicha yangi bitim och, tel: +998901234567",
+  );
+  bool _isLoading = false;
+  Map<String, dynamic>? _result;
+
+  void _analyze() {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+
+    setState(() => _isLoading = true);
+
+    // Natural Language Parsing for CRM Deal
+    final budget = UzbekNlp.parseNumber(text).toDouble();
+    String name = 'Mijoz';
+    final nameMatch = RegExp(r'([A-ZА-ЯЁ][a-zа-яё]+)\s+bilan').firstMatch(text);
+    if (nameMatch != null) {
+      name = nameMatch.group(1) ?? 'Mijoz';
+    } else {
+      final words = text.split(' ');
+      if (words.isNotEmpty) name = words.first;
+    }
+
+    String phone = '+998 90 000 00 00';
+    final phoneMatch = RegExp(r'(\+?\d[\d\s-]{7,}\d)').firstMatch(text);
+    if (phoneMatch != null) {
+      phone = phoneMatch.group(1) ?? phone;
+    }
+
+    String product = 'Xizmat';
+    if (text.toLowerCase().contains('erp')) {
+      product = 'ERP Tizimi';
+    } else if (text.toLowerCase().contains('mobil')) {
+      product = 'Mobil Ilova';
+    } else if (text.toLowerCase().contains('sayt') || text.toLowerCase().contains('veb')) {
+      product = 'Veb-sayt';
+    }
+
+    setState(() {
+      _isLoading = false;
+      _result = {
+        'name': name,
+        'phone': phone,
+        'product': product,
+        'budget': budget > 0 ? budget : 5000000.0,
+      };
+    });
+  }
+
+  void _confirmAndCreate() async {
+    if (_result == null) return;
+
+    final tool = widget.service.schema.tools.firstWhere((t) => t.name == 'crm_lead_add');
+    await tool.handler({
+      'name': _result!['name'],
+      'phone': _result!['phone'],
+      'product': _result!['product'],
+      'budget': _result!['budget'],
+      'assigned_to': widget.security.currentUser.name,
+      'source': 'AI Assistent',
+      'note': 'AI orqali tezkor ochilgan bitim',
+    });
+
+    if (mounted) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('"${_result!['name']}" uchun yangi bitim ochildi!')),
+      );
+      widget.onLeadCreated();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.purple.shade50,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.auto_awesome, color: Colors.purple, size: 24),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'AI Bitim & Mijoz Yaratish',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        'Tabiiy tilda yozing, AI mijoz va bitim byudjetini aniqlaydi',
+                        style: TextStyle(fontSize: 11, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 20),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Tezkor namunalar
+            Wrap(
+              spacing: 8,
+              children: [
+                ActionChip(
+                  label: const Text('Akmal: 15 mln ERP Tizimi', style: TextStyle(fontSize: 11)),
+                  onPressed: () {
+                    _controller.text = "Akmal bilan 15 000 000 so'mlik ERP Tizimi bo'yicha yangi bitim och, tel: +998901234567";
+                    _analyze();
+                  },
+                ),
+                ActionChip(
+                  label: const Text('Bobur: 8 mln Mobil ilova', style: TextStyle(fontSize: 11)),
+                  onPressed: () {
+                    _controller.text = "Bobur bilan 8 000 000 so'mlik Mobil ilova ishlab chiqish bitimi, tel: +998939876543";
+                    _analyze();
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            TextField(
+              controller: _controller,
+              maxLines: 2,
+              decoration: InputDecoration(
+                hintText: 'Masalan: Akmal bilan 15 mln so\'mlik ERP bo\'yicha yangi bitim och',
+                filled: true,
+                fillColor: const Color(0xFFF8F9FA),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: FilledButton.icon(
+                onPressed: _isLoading ? null : _analyze,
+                icon: const Icon(Icons.psychology, size: 18),
+                label: const Text('AI Bitimini Tahlil Qilish'),
+                style: FilledButton.styleFrom(backgroundColor: Colors.purple),
+              ),
+            ),
+
+            if (_result != null) ...[
+              const SizedBox(height: 16),
+              Card(
+                elevation: 0,
+                color: Colors.teal.shade50.withValues(alpha: 0.5),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: Colors.teal.shade200),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.verified, color: Colors.green, size: 18),
+                          const SizedBox(width: 6),
+                          const Text('Aniqlangan Bitim', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        ],
+                      ),
+                      const Divider(height: 16),
+                      Text('• Mijoz: ${_result!['name']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      const SizedBox(height: 4),
+                      Text('• Telefon: ${_result!['phone']}', style: const TextStyle(fontSize: 12)),
+                      const SizedBox(height: 4),
+                      Text('• Mahsulot/Xizmat: ${_result!['product']}', style: const TextStyle(fontSize: 12)),
+                      const SizedBox(height: 4),
+                      Text('• Byudjet: ${(_result!['budget'] as num).toInt()} so\'m', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.teal)),
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 42,
+                        child: FilledButton.icon(
+                          onPressed: _confirmAndCreate,
+                          icon: const Icon(Icons.add, size: 16),
+                          label: const Text('Bitimni Ochish va Saqlash', style: TextStyle(fontWeight: FontWeight.bold)),
+                          style: FilledButton.styleFrom(backgroundColor: Colors.teal),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 10),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// PLAGIN SOZLAMALARI DIALOGI (CRM)
+// ============================================================================
+class CrmPluginConfigDialog extends StatefulWidget {
+  const CrmPluginConfigDialog({
+    super.key,
+    required this.plugin,
+    required this.pluginManager,
+    required this.onSaved,
+  });
+
+  final EcosystemPlugin plugin;
+  final PluginManager pluginManager;
+  final VoidCallback onSaved;
+
+  @override
+  State<CrmPluginConfigDialog> createState() => _CrmPluginConfigDialogState();
+}
+
+class _CrmPluginConfigDialogState extends State<CrmPluginConfigDialog> {
+  late final TextEditingController _limitController;
+
+  @override
+  void initState() {
+    super.initState();
+    final curLimit = widget.plugin.metadata['max_payout_limit'] ?? 3000000;
+    _limitController = TextEditingController(text: '$curLimit');
+  }
+
+  @override
+  void dispose() {
+    _limitController.dispose();
+    super.dispose();
+  }
+
+  void _save() async {
+    final val = double.tryParse(_limitController.text.trim()) ?? 3000000.0;
+    widget.plugin.metadata['max_payout_limit'] = val;
+    await widget.pluginManager.registerPlugin(widget.plugin);
+    if (mounted) {
+      Navigator.of(context).pop();
+      widget.onSaved();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Row(
+        children: [
+          const Icon(Icons.sync_alt, color: Colors.teal),
+          const SizedBox(width: 8),
+          Expanded(child: Text(widget.plugin.name, style: const TextStyle(fontSize: 16))),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${widget.plugin.description}\n\nMoliya serveri bilan integratsiya (Bitim yutilganda kassa kirimiga avtomat qo\'shish).',
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _limitController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'Maksimal tushum chegarasi',
+              suffixText: 'so\'m',
+              border: OutlineInputBorder(),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Bekor qilish'),
+        ),
+        FilledButton(
+          onPressed: _save,
+          child: const Text('Saqlash'),
+        ),
+      ],
+    );
+  }
+}
+
